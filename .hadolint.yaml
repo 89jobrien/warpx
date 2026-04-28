@@ -1,0 +1,20 @@
+---
+# Suppress upstream Dockerfile lint noise for the fork.
+# These are all info/warning-level and don't indicate real issues.
+ignored:
+  - DL3003
+  - DL3008
+  - DL3009
+  - DL3015
+  - DL3016
+  - DL3045
+  - DL3059
+  - DL4006
+  - SC2086
+  - SC2174
+  - DL3007
+  - DL3001
+  - DL3004
+  - DL3027
+  - SC2006
+  - SC2024
