@@ -56,12 +56,12 @@ jobs:
         include:
           - os: "macos"
             name: "MacOS"
-            runner: [self-hosted, warpx-mac]
+            runner: macos-latest
             extra_test_args: ""
 
           - os: "linux"
             name: "Linux"
-            runner: [self-hosted, warpx-linux]
+            runner: ubuntu-latest
             extra_test_args: ""
     runs-on: ${{ matrix.runner }}
     needs: params
@@ -73,7 +73,7 @@ jobs:
       - uses: ./.github/actions/prepare_environment
         with:
           target_os: ${{ matrix.os }}
-          is_self_hosted: true
+          is_self_hosted: false
           install_test_deps: true
 
       - name: Echo Shells
@@ -173,13 +173,13 @@ jobs:
         include:
           - os: "macos"
             name: "MacOS"
-            runner: [self-hosted, warpx-mac]
+            runner: macos-latest
             null_device: "/dev/null"
             clippy_excludes: "--exclude warp_completer"
 
           - os: "linux"
             name: "Linux"
-            runner: [self-hosted, warpx-linux]
+            runner: ubuntu-latest
             null_device: "/dev/null"
             clippy_excludes: "--exclude warp_completer"
     runs-on: ${{ matrix.runner }}
@@ -190,7 +190,7 @@ jobs:
       - uses: ./.github/actions/prepare_environment
         with:
           target_os: ${{ matrix.os }}
-          is_self_hosted: true
+          is_self_hosted: false
 
       - name: Ensure cargo.lock is up-to-date
         run: cargo metadata --locked --format-version=1 > ${{ matrix.null_device }} || (echo "::error::Cargo.lock is out-of-date with Cargo.toml. Run 'cargo check' to update." && exit 1)
