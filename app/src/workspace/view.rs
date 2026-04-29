@@ -3771,7 +3771,10 @@ impl Workspace {
                 },
                 LeftPanelDisplayedTab::WarpDrive => ToolPanelView::WarpDrive,
                 LeftPanelDisplayedTab::ConversationListView => ToolPanelView::ConversationListView,
-                LeftPanelDisplayedTab::Handoff => ToolPanelView::Handoff,
+                // Handoff is not exposed by the left-panel available-views source of truth,
+                // so restoring it would produce an unreachable tab state. Fall back to a
+                // supported left-panel tab instead.
+                LeftPanelDisplayedTab::Handoff => ToolPanelView::ProjectExplorer,
             };
             lp.restore_active_view_from_snapshot(active_view, ctx);
             lp.set_active_pane_group(pane_group.clone(), &self.working_directories_model, ctx);
