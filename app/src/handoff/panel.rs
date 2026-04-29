@@ -37,6 +37,7 @@ pub enum HandoffPanelAction {
         project: String,
         status: String,
     },
+    #[allow(dead_code)]
     AddNote {
         item_id: String,
         project: String,
@@ -45,6 +46,7 @@ pub enum HandoffPanelAction {
 
 #[derive(Clone, Debug)]
 pub enum HandoffPanelEvent {
+    #[allow(dead_code)]
     Refreshed,
 }
 

@@ -89,7 +89,7 @@ impl HandoffModel {
                     for line in content.lines() {
                         let trimmed = line.trim();
                         if trimmed.starts_with("module ") {
-                            let name = trimmed["module ".len()..].trim();
+                            let name = trimmed.strip_prefix("module ").unwrap_or(trimmed).trim();
                             let last = name.split('/').next_back().unwrap_or(name);
                             if !last.is_empty() {
                                 return Some(last.to_string());
@@ -294,5 +294,6 @@ impl Entity for HandoffModel {
 #[derive(Clone, Debug)]
 pub enum HandoffModelEvent {
     Loaded,
+    #[allow(dead_code)]
     Error(String),
 }
