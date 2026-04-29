@@ -1,0 +1,36 @@
+name: Braid Smoke Test
+
+on:
+  pull_request:
+    branches:
+      - "main"
+  schedule:
+    # Run nightly to catch interface drift even without PRs
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  braid-smoke:
+    name: Verify braid agent CLI contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Download latest braid release
+        run: |
+          gh release download --repo 89jobrien/braid --pattern 'braid-*-x86_64-unknown-linux-musl.tar.gz' --dir /tmp/braid
+          tar -xzf /tmp/braid/braid-*-x86_64-unknown-linux-musl.tar.gz -C /tmp/braid
+          chmod +x /tmp/braid/braid-cli
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify braid agent --help exits 0
+        run: /tmp/braid/braid-cli agent --help
+
+      - name: Verify expected flags exist
+        run: |
+          HELP=$(/tmp/braid/braid-cli agent --help)
+          echo "$HELP" | grep -q -- '--prompt'
+          echo "$HELP" | grep -q -- '--provider'
+          echo "$HELP" | grep -q -- '--model'
+          echo "$HELP" | grep -q -- '--max-turns'
+          echo "All expected flags present"
