@@ -3771,6 +3771,7 @@ impl Workspace {
                 },
                 LeftPanelDisplayedTab::WarpDrive => ToolPanelView::WarpDrive,
                 LeftPanelDisplayedTab::ConversationListView => ToolPanelView::ConversationListView,
+                LeftPanelDisplayedTab::Handoff => ToolPanelView::Handoff,
             };
             lp.restore_active_view_from_snapshot(active_view, ctx);
             lp.set_active_pane_group(pane_group.clone(), &self.working_directories_model, ctx);
@@ -16600,6 +16601,7 @@ impl Workspace {
                         ToolPanelView::GlobalSearch { .. } => "Global search",
                         ToolPanelView::WarpDrive => "Warp Drive",
                         ToolPanelView::ConversationListView => "Agent conversations",
+                        ToolPanelView::Handoff => "Handoff",
                     }
                 } else {
                     "Tools panel"
@@ -16654,6 +16656,7 @@ impl Workspace {
                 ToolPanelView::GlobalSearch { .. } => "Global search",
                 ToolPanelView::WarpDrive => "Warp Drive",
                 ToolPanelView::ConversationListView => "Agent conversations",
+                ToolPanelView::Handoff => "Handoff",
             }
         } else {
             "Tools panel"

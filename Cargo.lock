@@ -3957,15 +3957,15 @@ dependencies = [
 
 [[package]]
 name = "diesel"
-version = "2.3.4"
+version = "2.3.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c415189028b232660655e4893e8bc25ca7aee8e96888db66d9edb400535456a"
+checksum = "78df0e4e8c596662edb07fbfbb7f23769cca35049827df5f909084d956b6aeaf"
 dependencies = [
  "chrono",
  "diesel_derives",
  "downcast-rs 2.0.2",
  "libsqlite3-sys",
- "sqlite-wasm-rs",
+ "sqlite-wasm-rs 0.4.8",
  "time",
 ]
 
@@ -4523,6 +4523,18 @@ dependencies = [
  "smallvec 1.15.1",
  "zune-inflate",
 ]
+
+[[package]]
+name = "fallible-iterator"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2acce4a10f12dc2fb14a218589d4f1f62ef011b2d0cc4b3cb1bba8e94da14649"
+
+[[package]]
+name = "fallible-streaming-iterator"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7360491ce676a36bf9bb3c56c1aa791658183a54d2744120f27285738d90465a"
 
 [[package]]
 name = "fancy-regex"
@@ -5590,7 +5602,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51255ea7cfaadb6c5f1528d43e92a82acb2b96c43365989a28b2d44ee38f8795"
 dependencies = [
  "ash",
- "hashbrown 0.16.0",
+ "hashbrown 0.16.1",
  "log",
  "presser",
  "thiserror 2.0.17",
@@ -5834,14 +5846,15 @@ dependencies = [
 
 [[package]]
 name = "hashbrown"
-version = "0.16.0"
+version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5419bdc4f6a9207fbeba6d11b604d481addf78ecd10c11ad51e76c2f6482748d"
+checksum = "841d1cc9bed7f9236f321df977030373f4a4163ae1a7dbfe1a51a2c1a51d9100"
 dependencies = [
  "allocator-api2",
  "equivalent",
  "foldhash 0.2.0",
  "serde",
+ "serde_core",
 ]
 
 [[package]]
@@ -5851,6 +5864,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7382cf6263419f2d8df38c55d7da83da5c18aef87fc7a7fc1fb1e344edfe14c1"
 dependencies = [
  "hashbrown 0.15.2",
+]
+
+[[package]]
+name = "hashlink"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ea0b22561a9c04a7cb1a302c013e0259cd3b4bb619f145b32f72b8b4bcbed230"
+dependencies = [
+ "hashbrown 0.16.1",
 ]
 
 [[package]]
@@ -6481,7 +6503,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6717a8d2a5a929a1a2eb43a12812498ed141a0bcfb7e8f7844fbdbe4303bba9f"
 dependencies = [
  "equivalent",
- "hashbrown 0.16.0",
+ "hashbrown 0.16.1",
  "serde",
  "serde_core",
 ]
@@ -7252,9 +7274,9 @@ dependencies = [
 
 [[package]]
 name = "libsqlite3-sys"
-version = "0.33.0"
+version = "0.37.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "947e6816f7825b2b45027c2c32e7085da9934defa535de4a6a46b10a4d5257fa"
+checksum = "b1f111c8c41e7c61a49cd34e44c7619462967221a6443b0ec299e0ac30cfb9b1"
 dependencies = [
  "cc",
  "pkg-config",
@@ -7431,7 +7453,7 @@ version = "0.16.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1dc47f592c06f33f8e3aea9591776ec7c9f9e4124778ff8a3c3b87159f7e593"
 dependencies = [
- "hashbrown 0.16.0",
+ "hashbrown 0.16.1",
 ]
 
 [[package]]
@@ -8047,7 +8069,7 @@ dependencies = [
  "cfg_aliases 0.2.1",
  "codespan-reporting",
  "half",
- "hashbrown 0.16.0",
+ "hashbrown 0.16.1",
  "hexf-parse",
  "indexmap 2.12.0",
  "libm",
@@ -10506,7 +10528,7 @@ dependencies = [
  "ahash 0.8.11",
  "fluent-uri 0.4.1",
  "getrandom 0.3.4",
- "hashbrown 0.16.0",
+ "hashbrown 0.16.1",
  "parking_lot",
  "percent-encoding",
  "serde_json",
@@ -10853,6 +10875,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rsqlite-vfs"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a8a1f2315036ef6b1fbacd1972e8ee7688030b0a2121edfc2a6550febd41574d"
+dependencies = [
+ "hashbrown 0.16.1",
+ "thiserror 2.0.17",
+]
+
+[[package]]
 name = "rstar"
 version = "0.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10873,6 +10905,21 @@ dependencies = [
  "num-integer",
  "num-traits",
  "realfft",
+]
+
+[[package]]
+name = "rusqlite"
+version = "0.39.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a0d2b0146dd9661bf67bb107c0bb2a55064d556eeb3fc314151b957f313bcd4e"
+dependencies = [
+ "bitflags 2.9.4",
+ "fallible-iterator",
+ "fallible-streaming-iterator",
+ "hashlink 0.11.0",
+ "libsqlite3-sys",
+ "smallvec 1.15.1",
+ "sqlite-wasm-rs 0.5.3",
 ]
 
 [[package]]
@@ -11198,7 +11245,7 @@ version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "675656c1eabb620b921efea4f9199f97fc86e36dd6ffd1fbbe48d0f59a4987f5"
 dependencies = [
- "hashbrown 0.16.0",
+ "hashbrown 0.16.1",
  "serde",
  "serde_json",
 ]
@@ -11219,7 +11266,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4fb771b59f6b1985d1406325ec28f97cfb14256abcec4fdfb37b36a1766d6af7"
 dependencies = [
  "arraydeque",
- "hashlink",
+ "hashlink 0.10.0",
 ]
 
 [[package]]
@@ -12202,6 +12249,18 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
+]
+
+[[package]]
+name = "sqlite-wasm-rs"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1b2c760607300407ddeaee518acf28c795661b7108c75421303dbefb237d3a36"
+dependencies = [
+ "cc",
+ "js-sys",
+ "rsqlite-vfs",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -14311,6 +14370,7 @@ dependencies = [
  "reqwest-eventsource",
  "rmcp",
  "rquickjs",
+ "rusqlite",
  "rust-embed 8.7.2",
  "rustls 0.23.39",
  "schemars",
@@ -15453,7 +15513,7 @@ dependencies = [
  "cfg-if",
  "cfg_aliases 0.2.1",
  "document-features",
- "hashbrown 0.16.0",
+ "hashbrown 0.16.1",
  "js-sys",
  "log",
  "parking_lot",
@@ -15483,7 +15543,7 @@ dependencies = [
  "bytemuck",
  "cfg_aliases 0.2.1",
  "document-features",
- "hashbrown 0.16.0",
+ "hashbrown 0.16.1",
  "indexmap 2.12.0",
  "log",
  "naga",
@@ -15559,7 +15619,7 @@ dependencies = [
  "glutin_wgl_sys",
  "gpu-allocator",
  "gpu-descriptor",
- "hashbrown 0.16.0",
+ "hashbrown 0.16.1",
  "js-sys",
  "khronos-egl",
  "libc",
