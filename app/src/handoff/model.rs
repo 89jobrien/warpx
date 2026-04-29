@@ -57,8 +57,10 @@ impl HandoffModel {
     }
 
     fn db_path() -> PathBuf {
-        let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
-        PathBuf::from(home).join(".ctx").join("handoff.db")
+        dirs::home_dir()
+            .expect("unable to determine home directory for handoff database path")
+            .join(".ctx")
+            .join("handoff.db")
     }
 
     /// Derive project name from Cargo.toml / go.mod / pyproject.toml in `dir`.
