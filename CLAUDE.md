@@ -16,8 +16,12 @@ cargo run                    # build and run locally
 
 ```bash
 cargo nextest run --no-fail-fast --workspace --exclude command-signatures-v2
+cargo nextest run -p warp_core -- test_name   # single test by crate + name
 cargo test --doc
 ```
+
+`command-signatures-v2` is excluded because it uses a separate generation
+pipeline and is not part of the standard test suite.
 
 ## Presubmit
 
@@ -29,11 +33,13 @@ cargo clippy --workspace --all-targets --all-features --tests -- -D warnings
 
 ## Architecture
 
-- **WarpUI** (`ui/`): custom UI framework, Entity-Component-Handle pattern
+- **WarpUI** (`crates/warpui/`): custom UI framework, Entity-Component-Handle pattern
 - **App** (`app/`): terminal emulation, AI/agent mode, settings, auth
 - **warp_core** (`crates/warp_core/`): core utilities, platform abstractions
 - **warp_features** (`crates/warp_features/`): compile-time feature flags
-- Cargo workspace with 34+ member crates
+- **warp_terminal** (`crates/warp_terminal/`): terminal emulator core
+- **ai** (`crates/ai/`): AI/agent infrastructure
+- Cargo workspace with 63 member crates
 - Cross-platform: macOS, Windows, Linux, WASM
 
 ## Feature Flags
@@ -60,16 +66,18 @@ refs down the call stack. Keep lock scope minimal.
 
 ## Key Paths
 
-| Component | Path |
-|-----------|------|
-| Feature flags | `crates/warp_features/src/lib.rs` |
-| Main binary | `app/` |
-| UI framework | `ui/` |
-| Settings | `app/src/settings/` |
-| AI/Agent | `app/src/ai/` |
-| Skills (bundled) | `resources/bundled/skills/` |
-| MCP config | `~/.warp/.mcp.json` |
-| Skills (user) | `~/.warp/skills/`, `~/.agents/skills/` |
+| Component         | Path                                   |
+| ----------------- | -------------------------------------- |
+| Feature flags     | `crates/warp_features/src/lib.rs`      |
+| Main binary       | `app/`                                 |
+| UI framework      | `crates/warpui/`                       |
+| Settings          | `app/src/settings/`                    |
+| AI/Agent          | `app/src/ai/`                          |
+| Skills (bundled)  | `resources/bundled/skills/`            |
+| MCP config        | `~/.warp/.mcp.json`                    |
+| Skills (user)     | `~/.warp/skills/`, `~/.agents/skills/` |
+| Design specs      | `specs/`                               |
+| Integration tests | `crates/integration/`                  |
 
 ## Branch Strategy
 
