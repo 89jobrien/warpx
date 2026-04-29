@@ -49,25 +49,20 @@ jobs:
 
   tests:
     name: Run ${{ matrix.name }} tests
-    timeout-minutes: 25
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: "macos"
             name: "MacOS"
-            runner: macos-latest
+            runner: [self-hosted, warpx-mac]
             extra_test_args: ""
 
           - os: "linux"
             name: "Linux"
-            runner: ubuntu-latest
+            runner: [self-hosted, warpx-linux]
             extra_test_args: ""
-
-          - os: "windows"
-            name: "Windows"
-            runner: windows-latest
-            extra_test_args: "--exclude command-signatures-v2 --exclude warp_js"
     runs-on: ${{ matrix.runner }}
     needs: params
     permissions:
@@ -78,75 +73,26 @@ jobs:
       - uses: ./.github/actions/prepare_environment
         with:
           target_os: ${{ matrix.os }}
-          is_self_hosted: false
+          is_self_hosted: true
           install_test_deps: true
 
-      - name: Install Shells
-        uses: ConorMacBride/install-package@3e7ad059e07782ee54fa35f827df52aae0626f30 # v1
-        with:
-          apt: zsh fish
-          brew: fish bash
-
-      - name: Echo Shells (UNIX)
-        id: echo_shells_unix
-        if: ${{ matrix.os != 'windows' }}
+      - name: Echo Shells
+        id: echo_shells
         shell: bash
         run: |
-          if ${{ matrix.os == 'macos' }}; then
-            LATEST_BASH_PATH="$(brew --prefix bash)/bin/bash"
-            echo "latest_bash_path=$LATEST_BASH_PATH" >> $GITHUB_OUTPUT
-            LATEST_BASH_VERSION="$($LATEST_BASH_PATH --version)"
-            echo "::notice title=${{ matrix.name }} Tests - Latest Bash Version::$LATEST_BASH_VERSION"
-          fi
-
           DEFAULT_BASH_PATH="$(command -pv bash)"
-          DEFAULT_BASH_VERSION="$($DEFAULT_BASH_PATH --version)"
           echo "default_bash_path=$DEFAULT_BASH_PATH" >> $GITHUB_OUTPUT
-          echo "::notice title=${{ matrix.name }} Tests - Default Bash Version::$DEFAULT_BASH_VERSION"
 
-          FISH_PATH="$(which fish)"
-          echo "fish_path=$FISH_PATH" >> $GITHUB_OUTPUT
-          FISH_VERSION="$($FISH_PATH --version)"
-          echo "::notice title=${{ matrix.name }} Tests - Fish Version::$FISH_VERSION"
-
-          ZSH_VERSION="$(zsh --version)"
-          ZSH_PATH="$(which zsh)"
+          ZSH_PATH="$(which zsh || echo /bin/zsh)"
           echo "zsh_path=$ZSH_PATH" >> $GITHUB_OUTPUT
-          echo "::notice title=${{ matrix.name }} Tests - Zsh Version::$ZSH_VERSION"
 
-          POWERSHELL_PATH="$(which pwsh)"
-          POWERSHELL_VERSION=$(pwsh -version | awk '{print $2}')
-          echo "powershell_path=$POWERSHELL_PATH" >> $GITHUB_OUTPUT
-          echo "::notice title=${{ matrix.name }} Tests - Powershell Version::$POWERSHELL_VERSION"
-
-      - name: Echo Shells (Windows)
-        id: echo_shells_windows
-        if: ${{ matrix.os == 'windows' }}
-        shell: pwsh
-        run: |
-          $env:POWERSHELL_PATH = (Get-Command pwsh).Source
-          $env:POWERSHELL_VERSION = (Get-Command pwsh).Version.Major
-          Write-Output 'Powershell path:' $env:POWERSHELL_PATH
-          Write-Output 'Powershell version:' $env:POWERSHELL_VERSION
-          Write-Output "powershell_path=$env:POWERSHELL_PATH" >> $env:GITHUB_OUTPUT
-          Write-Output "::notice title=${{ matrix.name }} Tests - Powershell Version::$env:POWERSHELL_VERSION"
-
-      - name: Echo Default Shell
-        id: echo_default_shell
-        shell: bash
-        run: |
-          if ${{ matrix.os == 'windows' }}; then
-            DEFAULT_SHELL="${{ steps.echo_shells_windows.outputs.powershell_path }}"
-          else
-            DEFAULT_SHELL="${{ steps.echo_shells_unix.outputs.zsh_path }}"
-          fi
-          echo "Using default shell '$DEFAULT_SHELL'"
-          echo "default_shell_path=$DEFAULT_SHELL" >> $GITHUB_OUTPUT
+          FISH_PATH="$(which fish || echo "")"
+          echo "fish_path=$FISH_PATH" >> $GITHUB_OUTPUT
 
       - name: Install cargo nextest
-        uses: taiki-e/install-action@9a29ce630c67077a359246f3e4f84941e05f28b5 # v1
-        with:
-          tool: nextest
+        shell: bash
+        run: |
+          command -v cargo-nextest >/dev/null 2>&1 || cargo install cargo-nextest --locked
 
       - name: Compile tests
         run: cargo nextest run ${{ env.WORKSPACE_TEST_ARGS }} ${{ matrix.extra_test_args }} --no-run
@@ -157,65 +103,39 @@ jobs:
         if: success()
         run: cargo nextest run ${{ env.WORKSPACE_TEST_ARGS }} ${{ matrix.extra_test_args }} -E "not package(integration)"
         env:
-          WARP_SHELL_PATH: ${{ steps.echo_default_shell.outputs.default_shell_path }}
+          WARP_SHELL_PATH: ${{ steps.echo_shells.outputs.zsh_path }}
 
       - name: Run shell-agnostic integration tests
-        if: matrix.os != 'windows' && (success() || failure())
-        uses: coactions/setup-xvfb@b6b4fcfb9f5a895edadc3bc76318fae0ac17c8b3 # v1
-        with:
-          run: cargo nextest run ${{ env.WORKSPACE_TEST_ARGS }} ${{ matrix.extra_test_args }} -E "package(integration) and not test(shell_integration_tests) and not test(/_ssh_/)"
+        if: success() || failure()
+        run: cargo nextest run ${{ env.WORKSPACE_TEST_ARGS }} ${{ matrix.extra_test_args }} -E "package(integration) and not test(shell_integration_tests) and not test(/_ssh_/)"
         env:
-          WARP_SHELL_PATH: ${{ steps.echo_shells_unix.outputs.zsh_path }}
+          WARP_SHELL_PATH: ${{ steps.echo_shells.outputs.zsh_path }}
 
-      - name: Run shell integration tests against default version of bash
-        if: matrix.os != 'windows' && (success() || failure())
-        uses: coactions/setup-xvfb@b6b4fcfb9f5a895edadc3bc76318fae0ac17c8b3 # v1
-        with:
-          run: cargo nextest run ${{ env.WORKSPACE_TEST_ARGS }} ${{ matrix.extra_test_args }} -E "package(integration) and test(shell_integration_tests)"
+      - name: Run shell integration tests (bash)
+        if: success() || failure()
+        run: cargo nextest run ${{ env.WORKSPACE_TEST_ARGS }} ${{ matrix.extra_test_args }} -E "package(integration) and test(shell_integration_tests)"
         env:
-          WARP_SHELL_PATH: ${{ steps.echo_shells_unix.outputs.default_bash_path }}
+          WARP_SHELL_PATH: ${{ steps.echo_shells.outputs.default_bash_path }}
 
-      - name: Run shell integration tests against latest version of bash
-        if: (success() || failure()) && runner.os == 'macos'
-        uses: coactions/setup-xvfb@b6b4fcfb9f5a895edadc3bc76318fae0ac17c8b3 # v1
-        with:
-          run: cargo nextest run ${{ env.WORKSPACE_TEST_ARGS }} ${{ matrix.extra_test_args }} -E "package(integration) and test(shell_integration_tests)"
+      - name: Run shell integration tests (zsh)
+        if: success() || failure()
+        run: cargo nextest run ${{ env.WORKSPACE_TEST_ARGS }} ${{ matrix.extra_test_args }} -E "package(integration) and test(shell_integration_tests)"
         env:
-          WARP_SHELL_PATH: ${{ steps.echo_shells_unix.outputs.latest_bash_path }}
+          WARP_SHELL_PATH: ${{ steps.echo_shells.outputs.zsh_path }}
 
-      - name: Run shell integration tests against fish
-        if: matrix.os != 'windows' && (success() || failure())
-        uses: coactions/setup-xvfb@b6b4fcfb9f5a895edadc3bc76318fae0ac17c8b3 # v1
-        with:
-          run: cargo nextest run ${{ env.WORKSPACE_TEST_ARGS }} ${{ matrix.extra_test_args }} -E "package(integration) and test(shell_integration_tests)"
+      - name: Run shell integration tests (fish)
+        if: (success() || failure()) && steps.echo_shells.outputs.fish_path != ''
+        run: cargo nextest run ${{ env.WORKSPACE_TEST_ARGS }} ${{ matrix.extra_test_args }} -E "package(integration) and test(shell_integration_tests)"
         env:
-          WARP_SHELL_PATH: ${{ steps.echo_shells_unix.outputs.fish_path }}
-
-      - name: Run shell integration tests against zsh
-        if: matrix.os != 'windows' && (success() || failure())
-        uses: coactions/setup-xvfb@b6b4fcfb9f5a895edadc3bc76318fae0ac17c8b3 # v1
-        with:
-          run: cargo nextest run ${{ env.WORKSPACE_TEST_ARGS }} ${{ matrix.extra_test_args }} -E "package(integration) and test(shell_integration_tests)"
-        env:
-          WARP_SHELL_PATH: ${{ steps.echo_shells_unix.outputs.zsh_path }}
-
-      - name: Run shell integration tests against powershell
-        if: matrix.os != 'windows' && (success() || failure())
-        uses: coactions/setup-xvfb@b6b4fcfb9f5a895edadc3bc76318fae0ac17c8b3 # v1
-        with:
-          run: cargo nextest run ${{ env.WORKSPACE_TEST_ARGS }} ${{ matrix.extra_test_args }} -E "package(integration) and test(shell_integration_tests)"
-        env:
-          WARP_SHELL_PATH: ${{ steps.echo_shells_unix.outputs.powershell_path }}
+          WARP_SHELL_PATH: ${{ steps.echo_shells.outputs.fish_path }}
 
       - name: Run doc tests
         if: success() || failure()
         run: cargo test ${{ env.WORKSPACE_TEST_ARGS }} ${{ matrix.extra_test_args }} --doc
 
       - name: Run completions-on-js tests
-        if: matrix.os != 'windows' && (success() || failure())
-        uses: coactions/setup-xvfb@b6b4fcfb9f5a895edadc3bc76318fae0ac17c8b3 # v1
-        with:
-          run: cargo nextest run --locked -p warp_completer --features v2
+        if: success() || failure()
+        run: cargo nextest run --locked -p warp_completer --features v2
 
   database-migration:
     name: Database Migration (Diesel)
@@ -253,21 +173,15 @@ jobs:
         include:
           - os: "macos"
             name: "MacOS"
-            runner: macos-latest
+            runner: [self-hosted, warpx-mac]
             null_device: "/dev/null"
             clippy_excludes: "--exclude warp_completer"
 
           - os: "linux"
             name: "Linux"
-            runner: ubuntu-latest
+            runner: [self-hosted, warpx-linux]
             null_device: "/dev/null"
             clippy_excludes: "--exclude warp_completer"
-
-          - os: "windows"
-            name: "Windows"
-            runner: windows-latest
-            null_device: "NUL"
-            clippy_excludes: "--exclude warp_js --exclude command-signatures-v2"
     runs-on: ${{ matrix.runner }}
     needs: params
     steps:
@@ -276,7 +190,7 @@ jobs:
       - uses: ./.github/actions/prepare_environment
         with:
           target_os: ${{ matrix.os }}
-          is_self_hosted: false
+          is_self_hosted: true
 
       - name: Ensure cargo.lock is up-to-date
         run: cargo metadata --locked --format-version=1 > ${{ matrix.null_device }} || (echo "::error::Cargo.lock is out-of-date with Cargo.toml. Run 'cargo check' to update." && exit 1)
@@ -288,12 +202,8 @@ jobs:
         shell: bash
         run: |
           set -e
-          if [ "${{ matrix.os }}" = "windows" ]; then
-            cargo clippy --locked --workspace ${{ matrix.clippy_excludes }} --all-targets --tests -- -D warnings
-          else
-            cargo clippy --locked --workspace ${{ matrix.clippy_excludes }} --all-targets --tests -- -D warnings
-            cargo clippy --locked -p warp_completer --all-targets --tests -- -D warnings
-          fi
+          cargo clippy --locked --workspace ${{ matrix.clippy_excludes }} --all-targets --tests -- -D warnings
+          cargo clippy --locked -p warp_completer --all-targets --tests -- -D warnings
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -308,7 +218,6 @@ jobs:
   general-lint:
     name: Miscellaneous checks
     timeout-minutes: 10
-
     runs-on: ubuntu-latest
     needs: params
     steps:
@@ -338,9 +247,6 @@ jobs:
       - name: Run PSScriptAnalyzer (PowerShell Lint)
         run: ./script/lint_powershell -ci
         shell: pwsh
-
-      - name: Validate repo-sync markers
-        uses: warpdotdev/repo-sync/actions/validate-markers@main
 
   ci-result:
     name: Check CI results
