@@ -50,6 +50,11 @@ pub enum HandoffPanelEvent {
     Refreshed,
 }
 
+fn resolve_cwd() -> PathBuf {
+    std::env::current_dir()
+        .unwrap_or_else(|_| dirs::home_dir().unwrap_or_else(|| PathBuf::from("/")))
+}
+
 impl HandoffPanel {
     pub fn new(ctx: &mut ViewContext<Self>) -> Self {
         let model = ctx.add_model(HandoffModel::new);
@@ -58,7 +63,7 @@ impl HandoffPanel {
             HandoffModelEvent::Loaded | HandoffModelEvent::Error(_) => ctx.notify(),
         });
 
-        let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/"));
+        let cwd = resolve_cwd();
         model.update(ctx, |m, ctx| {
             m.load(cwd, ctx);
         });
@@ -303,7 +308,7 @@ impl warpui::TypedActionView for HandoffPanel {
     fn handle_action(&mut self, action: &HandoffPanelAction, ctx: &mut ViewContext<Self>) {
         match action {
             HandoffPanelAction::Refresh => {
-                let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/"));
+                let cwd = resolve_cwd();
                 self.model.update(ctx, |m, ctx| {
                     m.load(cwd, ctx);
                 });
@@ -326,7 +331,7 @@ impl warpui::TypedActionView for HandoffPanel {
                         if let Err(e) = result {
                             log::error!("complete_item: {e}");
                         }
-                        let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/"));
+                        let cwd = resolve_cwd();
                         model.update(ctx, |m, ctx| {
                             m.load(cwd, ctx);
                         });
@@ -350,7 +355,7 @@ impl warpui::TypedActionView for HandoffPanel {
                         if let Err(e) = result {
                             log::error!("set_item_status: {e}");
                         }
-                        let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/"));
+                        let cwd = resolve_cwd();
                         model.update(ctx, |m, ctx| {
                             m.load(cwd, ctx);
                         });
@@ -369,7 +374,7 @@ impl warpui::TypedActionView for HandoffPanel {
                         if let Err(e) = result {
                             log::error!("add_note: {e}");
                         }
-                        let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/"));
+                        let cwd = resolve_cwd();
                         model.update(ctx, |m, ctx| {
                             m.load(cwd, ctx);
                         });
