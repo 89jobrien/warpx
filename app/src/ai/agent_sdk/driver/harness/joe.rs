@@ -55,7 +55,7 @@ impl ThirdPartyHarness for JoeHarness {
     ) -> Result<Box<dyn HarnessRunner>, AgentDriverError> {
         let client: Arc<dyn HarnessSupportClient> = server_api;
         Ok(Box::new(JoeHarnessRunner::new(
-            "braid-agent",
+            "braid",
             prompt,
             client,
             terminal_driver,
@@ -64,7 +64,7 @@ impl ThirdPartyHarness for JoeHarness {
 }
 
 fn joe_command(cli_name: &str, prompt_path: &str) -> String {
-    format!("{cli_name} --prompt \"$(cat '{prompt_path}')\"")
+    format!("{cli_name} agent --prompt \"$(cat '{prompt_path}')\"")
 }
 
 enum JoeRunnerState {
