@@ -37,11 +37,13 @@ use super::{
 mod claude_code;
 pub(crate) mod claude_transcript;
 mod gemini;
+mod joe;
 mod json_utils;
 
 pub(crate) use claude_code::ClaudeHarness;
 use claude_transcript::ClaudeResumeInfo;
 use gemini::GeminiHarness;
+use joe::JoeHarness;
 
 /// Harness-agnostic payload describing how to resume an existing conversation.
 ///
@@ -167,6 +169,13 @@ pub(crate) fn harness_kind(harness: Harness) -> Result<HarnessKind, AgentDriverE
         Harness::Claude => Ok(HarnessKind::ThirdParty(Box::new(ClaudeHarness))),
         Harness::OpenCode => Ok(HarnessKind::Unsupported(Harness::OpenCode)),
         Harness::Gemini => Ok(HarnessKind::ThirdParty(Box::new(GeminiHarness))),
+        Harness::Joe => {
+            if warp_core::features::FeatureFlag::JoeMode.is_enabled() {
+                Ok(HarnessKind::ThirdParty(Box::new(JoeHarness)))
+            } else {
+                Ok(HarnessKind::Unsupported(Harness::Joe))
+            }
+        }
         Harness::Unknown => Err(AgentDriverError::InvalidRuntimeState),
     }
 }

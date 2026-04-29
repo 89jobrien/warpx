@@ -59,7 +59,7 @@ pub(super) fn build_local_opencode_child_command(prompt: &str) -> String {
 
 fn local_child_task_config(harness: Harness) -> Option<AgentConfigSnapshot> {
     match harness {
-        Harness::Oz | Harness::OpenCode | Harness::Gemini | Harness::Unknown => None,
+        Harness::Oz | Harness::OpenCode | Harness::Gemini | Harness::Joe | Harness::Unknown => None,
         Harness::Claude => Some(AgentConfigSnapshot {
             harness: Some(HarnessConfig::from_harness_type(harness)),
             ..Default::default()
@@ -123,7 +123,9 @@ pub(super) async fn prepare_local_harness_child_launch(
                 .map_err(|error: AgentDriverError| error.to_string())?;
             build_local_opencode_child_command(&prompt)
         }
-        Harness::Gemini => unreachable!("normalize_local_child_harness filters out Gemini"),
+        Harness::Gemini | Harness::Joe => {
+            unreachable!("normalize_local_child_harness filters out Gemini and Joe")
+        }
     };
 
     let task_id = ai_client

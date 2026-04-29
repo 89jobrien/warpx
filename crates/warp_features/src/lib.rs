@@ -835,6 +835,10 @@ pub enum FeatureFlag {
     VerticalTabsSummaryMode,
 
     CloudModeInputV2,
+
+    /// Personal fork customizations (JoeHarness, bundled skills, custom defaults).
+    /// Gates all joe/main branch additions so the fork stays mergeable with upstream.
+    JoeMode,
 }
 
 static FLAG_STATES: [AtomicBool; cardinality::<FeatureFlag>()] =
@@ -911,6 +915,7 @@ pub const DOGFOOD_FLAGS: &[FeatureFlag] = &[
     FeatureFlag::LocalDockerSandbox,
     FeatureFlag::VerticalTabsSummaryMode,
     FeatureFlag::CloudModeSetupV2,
+    FeatureFlag::JoeMode,
 ];
 
 /// Features enabled for feature preview build users (e.g.: Friends of Warp).
