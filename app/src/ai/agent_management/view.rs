@@ -679,7 +679,12 @@ impl AgentManagementView {
             )),
         )];
 
-        for harness in [Harness::Oz, Harness::Claude, Harness::Gemini, Harness::Joe] {
+        let mut harnesses = vec![Harness::Oz, Harness::Claude, Harness::Gemini];
+        if FeatureFlag::JoeMode.is_enabled() {
+            harnesses.push(Harness::Joe);
+        }
+
+        for harness in harnesses {
             let mut fields = MenuItemFields::new(harness_display::display_name(harness))
                 .with_icon(harness_display::icon_for(harness))
                 .with_on_select_action(DropdownAction::SelectActionAndClose(

@@ -57,8 +57,10 @@ impl HandoffModel {
     }
 
     fn db_path() -> PathBuf {
-        let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
-        PathBuf::from(home).join(".ctx").join("handoff.db")
+        dirs::home_dir()
+            .expect("unable to determine home directory for handoff database path")
+            .join(".ctx")
+            .join("handoff.db")
     }
 
     /// Derive project name from Cargo.toml / go.mod / pyproject.toml in `dir`.
@@ -186,7 +188,7 @@ impl HandoffModel {
                 )
                 .map_err(|e| format!("prepare extras: {e}"))?;
 
-            estmt
+            let extra_rows = estmt
                 .query_map([&project], |row| {
                     Ok((
                         row.get::<_, String>(0)?,
@@ -201,10 +203,12 @@ impl HandoffModel {
                     ))
                 })
                 .map_err(|e| format!("query extras: {e}"))?
-                .filter_map(|r| r.ok())
-                .for_each(|(item_id, extra)| {
-                    extras.entry(item_id).or_default().push(extra);
-                });
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|e| format!("collect extras: {e}"))?;
+
+            for (item_id, extra) in extra_rows {
+                extras.entry(item_id).or_default().push(extra);
+            }
         }
 
         Ok(LoadResult {
