@@ -70,7 +70,6 @@ struct MouseStateHandles {
     warp_drive_button: MouseStateHandle,
     conversation_list_view_button: MouseStateHandle,
     handoff_button: MouseStateHandle,
-    ctx_window_button: MouseStateHandle,
 }
 
 #[derive(Clone, Debug)]
