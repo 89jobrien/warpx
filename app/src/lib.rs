@@ -23,6 +23,7 @@ mod command_palette;
 mod completer;
 #[allow(dead_code)]
 mod context_chips;
+mod context_window;
 #[cfg(enable_crash_recovery)]
 mod crash_recovery;
 #[cfg(feature = "crash_reporting")]
@@ -72,7 +73,6 @@ mod resource_limits;
 mod reward_view;
 mod safe_triangle;
 mod search_bar;
-mod sentiment;
 mod server;
 mod session_management;
 mod shell_indicator;

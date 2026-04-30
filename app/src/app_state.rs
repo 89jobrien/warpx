@@ -301,7 +301,7 @@ pub enum LeftPanelDisplayedTab {
     WarpDrive,
     ConversationListView,
     Handoff,
-    Sentiment,
+    CtxWindow,
 }
 
 impl From<ToolPanelView> for LeftPanelDisplayedTab {
@@ -312,7 +312,7 @@ impl From<ToolPanelView> for LeftPanelDisplayedTab {
             ToolPanelView::WarpDrive => LeftPanelDisplayedTab::WarpDrive,
             ToolPanelView::ConversationListView => LeftPanelDisplayedTab::ConversationListView,
             ToolPanelView::Handoff => LeftPanelDisplayedTab::Handoff,
-            ToolPanelView::Sentiment => LeftPanelDisplayedTab::Sentiment,
+            ToolPanelView::CtxWindow => LeftPanelDisplayedTab::CtxWindow,
         }
     }
 }

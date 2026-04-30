@@ -3772,7 +3772,7 @@ impl Workspace {
                 LeftPanelDisplayedTab::WarpDrive => ToolPanelView::WarpDrive,
                 LeftPanelDisplayedTab::ConversationListView => ToolPanelView::ConversationListView,
                 LeftPanelDisplayedTab::Handoff => ToolPanelView::Handoff,
-                LeftPanelDisplayedTab::Sentiment => ToolPanelView::Sentiment,
+                LeftPanelDisplayedTab::CtxWindow => ToolPanelView::CtxWindow,
             };
             lp.restore_active_view_from_snapshot(active_view, ctx);
             lp.set_active_pane_group(pane_group.clone(), &self.working_directories_model, ctx);
@@ -16603,7 +16603,7 @@ impl Workspace {
                         ToolPanelView::WarpDrive => "Warp Drive",
                         ToolPanelView::ConversationListView => "Agent conversations",
                         ToolPanelView::Handoff => "Handoff",
-                        ToolPanelView::Sentiment => "Sentiment",
+                        ToolPanelView::CtxWindow => "Context Window",
                     }
                 } else {
                     "Tools panel"
@@ -16659,7 +16659,7 @@ impl Workspace {
                 ToolPanelView::WarpDrive => "Warp Drive",
                 ToolPanelView::ConversationListView => "Agent conversations",
                 ToolPanelView::Handoff => "Handoff",
-                ToolPanelView::Sentiment => "Sentiment",
+                ToolPanelView::CtxWindow => "Context Window",
             }
         } else {
             "Tools panel"
@@ -19576,6 +19576,10 @@ impl Workspace {
         if WarpDriveSettings::is_warp_drive_enabled(ctx) {
             views.push(ToolPanelView::WarpDrive);
         }
+        if FeatureFlag::OzHandoff.is_enabled() {
+            views.push(ToolPanelView::Handoff);
+        }
+        views.push(ToolPanelView::CtxWindow);
         views
     }
 

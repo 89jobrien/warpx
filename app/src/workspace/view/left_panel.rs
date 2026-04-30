@@ -21,11 +21,11 @@ use crate::ai::agent_conversations_model::AgentConversationsModel;
 #[cfg(feature = "local_fs")]
 use crate::code::file_tree::FileTreeEvent;
 use crate::coding_panel_enablement_state::CodingPanelEnablementState;
+use crate::context_window::panel::CtxWindowPanel;
 use crate::drive::panel::{DrivePanel, DrivePanelEvent};
 use crate::handoff::panel::HandoffPanel;
 use crate::pane_group::working_directories::WorkingDirectory;
 use crate::pane_group::{PaneGroup, WorkingDirectoriesEvent, WorkingDirectoriesModel};
-use crate::sentiment::panel::SentimentPanel;
 #[cfg(feature = "local_fs")]
 use crate::server::telemetry::CodePanelsFileOpenEntrypoint;
 use crate::server::telemetry::{FileTreeSource, WarpDriveSource};
@@ -70,7 +70,7 @@ struct MouseStateHandles {
     warp_drive_button: MouseStateHandle,
     conversation_list_view_button: MouseStateHandle,
     handoff_button: MouseStateHandle,
-    sentiment_button: MouseStateHandle,
+    ctx_window_button: MouseStateHandle,
 }
 
 #[derive(Clone, Debug)]
@@ -80,7 +80,7 @@ pub enum LeftPanelAction {
     WarpDrive,
     ConversationListView,
     Handoff,
-    Sentiment,
+    CtxWindow,
 }
 
 pub enum LeftPanelEvent {
@@ -108,7 +108,7 @@ pub enum ToolPanelView {
     WarpDrive,
     ConversationListView,
     Handoff,
-    Sentiment,
+    CtxWindow,
 }
 
 /// Encapsulates the active view state to enforce that all mutations go through
@@ -176,7 +176,7 @@ pub struct LeftPanelView {
     warp_drive_view: ViewHandle<DrivePanel>,
     conversation_list_view: ViewHandle<ConversationListView>,
     handoff_panel: ViewHandle<HandoffPanel>,
-    sentiment_panel: ViewHandle<SentimentPanel>,
+    ctx_window_panel: ViewHandle<CtxWindowPanel>,
     active_view: active_view_state::ActiveViewState,
     toolbelt_buttons: Vec<ToolbeltButtonConfig>,
     active_pane_group: Option<WeakViewHandle<PaneGroup>>,
@@ -222,7 +222,7 @@ impl LeftPanelView {
         let warp_drive_view = ctx.add_typed_action_view(DrivePanel::new);
         let conversation_list_view = ctx.add_typed_action_view(ConversationListView::new);
         let handoff_panel = ctx.add_typed_action_view(HandoffPanel::new);
-        let sentiment_panel = ctx.add_typed_action_view(SentimentPanel::new);
+        let ctx_window_panel = ctx.add_typed_action_view(CtxWindowPanel::new);
 
         ctx.subscribe_to_view(&warp_drive_view, |_me, _, event, ctx| {
             ctx.emit(LeftPanelEvent::WarpDrive(event.clone()));
@@ -321,7 +321,7 @@ impl LeftPanelView {
             warp_drive_view,
             conversation_list_view,
             handoff_panel,
-            sentiment_panel,
+            ctx_window_panel,
             active_view: active_view_state::new(active_view),
             toolbelt_buttons,
             active_pane_group: None,
@@ -466,13 +466,13 @@ impl LeftPanelView {
                     tooltip_keybinding_names,
                 }
             }
-            ToolPanelView::Sentiment => {
+            ToolPanelView::CtxWindow => {
                 let tooltip_keybinding_names = vec![];
                 ToolbeltButtonConfig {
                     icon: Icon::Stars,
                     active_icon: None,
-                    tooltip_text: "Sentiment".to_string(),
-                    action: LeftPanelAction::Sentiment,
+                    tooltip_text: "Context Window".to_string(),
+                    action: LeftPanelAction::CtxWindow,
                     render_with_active_state: false,
                     tooltip_keybinding: toolbelt_tooltip_keybinding(&tooltip_keybinding_names, ctx),
                     tooltip_keybinding_names,
@@ -723,8 +723,8 @@ impl LeftPanelView {
             ToolPanelView::Handoff => {
                 ctx.focus(&self.handoff_panel);
             }
-            ToolPanelView::Sentiment => {
-                ctx.focus(&self.sentiment_panel);
+            ToolPanelView::CtxWindow => {
+                ctx.focus(&self.ctx_window_panel);
             }
         }
     }
@@ -879,7 +879,7 @@ impl LeftPanelView {
                     self.active_view.get() == ToolPanelView::ConversationListView
                 }
                 LeftPanelAction::Handoff => self.active_view.get() == ToolPanelView::Handoff,
-                LeftPanelAction::Sentiment => self.active_view.get() == ToolPanelView::Sentiment,
+                LeftPanelAction::CtxWindow => self.active_view.get() == ToolPanelView::CtxWindow,
             };
         }
     }
@@ -1024,8 +1024,8 @@ impl LeftPanelView {
             LeftPanelAction::Handoff => {
                 active_view_state::set(self, ToolPanelView::Handoff, ctx);
             }
-            LeftPanelAction::Sentiment => {
-                active_view_state::set(self, ToolPanelView::Sentiment, ctx);
+            LeftPanelAction::CtxWindow => {
+                active_view_state::set(self, ToolPanelView::CtxWindow, ctx);
             }
         }
     }
@@ -1127,7 +1127,7 @@ impl View for LeftPanelView {
                 ToolPanelView::WarpDrive => ctx.focus(&self.warp_drive_view),
                 ToolPanelView::ConversationListView => ctx.focus(&self.conversation_list_view),
                 ToolPanelView::Handoff => ctx.focus(&self.handoff_panel),
-                ToolPanelView::Sentiment => ctx.focus(&self.sentiment_panel),
+                ToolPanelView::CtxWindow => ctx.focus(&self.ctx_window_panel),
             }
         }
     }
@@ -1204,8 +1204,8 @@ impl View for LeftPanelView {
             ToolPanelView::Handoff => {
                 Shrinkable::new(1.0, ChildView::new(&self.handoff_panel).finish()).finish()
             }
-            ToolPanelView::Sentiment => {
-                Shrinkable::new(1.0, ChildView::new(&self.sentiment_panel).finish()).finish()
+            ToolPanelView::CtxWindow => {
+                Shrinkable::new(1.0, ChildView::new(&self.ctx_window_panel).finish()).finish()
             }
         };
 
