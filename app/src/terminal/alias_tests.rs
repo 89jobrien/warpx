@@ -33,6 +33,32 @@ fn test_is_expandable_alias_when_alias_value_is_empty() {
 }
 
 #[test]
+fn test_is_expandable_alias_when_alias_appears_as_later_command() {
+    // CORE-240: alias appears as a command after && — not expandable
+    let expandable = is_expandable_alias("ll", "cd /tmp && ll");
+    assert!(!expandable);
+
+    // alias appears as a command after ||
+    let expandable = is_expandable_alias("ll", "cd /tmp || ll");
+    assert!(!expandable);
+
+    // alias appears as a command after ;
+    let expandable = is_expandable_alias("ll", "cd /tmp; ll");
+    assert!(!expandable);
+
+    // alias appears as a command in a pipe
+    let expandable = is_expandable_alias("ll", "echo foo | ll");
+    assert!(!expandable);
+}
+
+#[test]
+fn test_is_expandable_alias_when_alias_is_only_an_argument_in_later_command() {
+    // alias appears only as an argument in a later command — still expandable
+    let expandable = is_expandable_alias("ll", "cd /tmp && ls ll");
+    assert!(expandable);
+}
+
+#[test]
 fn test_check_for_alias_has_alias() {
     let alias: SmolStr = "gco".into();
     let alias_value: String = "git checkout".into();
