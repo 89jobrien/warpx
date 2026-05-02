@@ -10,12 +10,9 @@ pub struct HandoffItem {
     pub name: Option<String>,
     pub priority: Option<String>,
     pub status: Option<String>,
-    pub title: Option<String>,
-    pub description: Option<String>,
-    pub files: Option<String>,
-    pub tags: Option<String>,
-    pub updated: String,
     pub completed: Option<String>,
+    pub updated: String,
+    pub issue: Option<i64>,
 }
 
 /// An extra annotation attached to a handoff item.
@@ -149,8 +146,7 @@ impl HandoffModel {
 
         let mut stmt = conn
             .prepare(
-                "SELECT project, id, name, priority, status, title, description, \
-                 files, tags, updated, completed \
+                "SELECT project, id, name, priority, status, completed, updated, issue \
                  FROM items WHERE project = ? ORDER BY \
                  CASE status WHEN 'open' THEN 0 WHEN 'blocked' THEN 1 ELSE 2 END, \
                  CASE priority WHEN 'P0' THEN 0 WHEN 'P1' THEN 1 \
@@ -166,12 +162,9 @@ impl HandoffModel {
                     name: row.get(2)?,
                     priority: row.get(3)?,
                     status: row.get(4)?,
-                    title: row.get(5)?,
-                    description: row.get(6)?,
-                    files: row.get(7)?,
-                    tags: row.get(8)?,
-                    updated: row.get(9)?,
-                    completed: row.get(10)?,
+                    completed: row.get(5)?,
+                    updated: row.get(6)?,
+                    issue: row.get(7)?,
                 })
             })
             .map_err(|e| format!("query items: {e}"))?

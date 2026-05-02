@@ -134,11 +134,7 @@ impl HandoffPanel {
         let item_id = item.id.clone();
         let project = item.project.clone();
 
-        let title_text = item
-            .title
-            .clone()
-            .or_else(|| item.name.clone())
-            .unwrap_or_else(|| item.id.clone());
+        let title_text = item.name.clone().unwrap_or_else(|| item.id.clone());
 
         let priority_badge = Self::render_priority_badge(item.priority.as_deref(), appearance);
         let status_badge = Self::render_status_badge(item.status.as_deref(), appearance);
@@ -178,47 +174,6 @@ impl HandoffPanel {
 
         // Expanded body
         let mut body = Flex::column();
-
-        if let Some(desc) = &item.description {
-            if !desc.is_empty() {
-                let sub_color = appearance
-                    .theme()
-                    .sub_text_color(appearance.theme().background())
-                    .into_solid();
-                body = body.with_child(
-                    Container::new(
-                        Text::new(desc.clone(), appearance.ui_font_family(), 11.)
-                            .with_color(sub_color)
-                            .finish(),
-                    )
-                    .with_padding_left(8.)
-                    .with_padding_top(4.)
-                    .finish(),
-                );
-            }
-        }
-
-        if let Some(files_json) = &item.files {
-            if let Ok(files) = serde_json::from_str::<Vec<String>>(files_json) {
-                if !files.is_empty() {
-                    let sub_color = appearance
-                        .theme()
-                        .sub_text_color(appearance.theme().background())
-                        .into_solid();
-                    let files_label = format!("Files: {}", files.join(", "));
-                    body = body.with_child(
-                        Container::new(
-                            Text::new(files_label, appearance.ui_font_family(), 10.)
-                                .with_color(sub_color)
-                                .finish(),
-                        )
-                        .with_padding_left(8.)
-                        .with_padding_top(2.)
-                        .finish(),
-                    );
-                }
-            }
-        }
 
         // Action buttons: [Complete] [→ open] [→ blocked]
         let cid = item_id.clone();
