@@ -28,20 +28,6 @@ pub struct HandoffPanel {
 pub enum HandoffPanelAction {
     Refresh,
     ToggleExpand(String),
-    CompleteItem {
-        item_id: String,
-        project: String,
-    },
-    SetStatus {
-        item_id: String,
-        project: String,
-        status: String,
-    },
-    #[allow(dead_code)]
-    AddNote {
-        item_id: String,
-        project: String,
-    },
 }
 
 #[derive(Clone, Debug)]
@@ -64,6 +50,7 @@ impl HandoffPanel {
         });
 
         let cwd = resolve_cwd();
+        log::info!("[handoff] HandoffPanel::new cwd={cwd:?}");
         model.update(ctx, |m, ctx| {
             m.load(cwd, ctx);
         });
@@ -132,9 +119,8 @@ impl HandoffPanel {
     ) -> Box<dyn Element> {
         let is_expanded = self.expanded.contains(&item.id);
         let item_id = item.id.clone();
-        let project = item.project.clone();
 
-        let title_text = item.name.clone().unwrap_or_else(|| item.id.clone());
+        let title_text = item.title.clone().unwrap_or_else(|| item.id.clone());
 
         let priority_badge = Self::render_priority_badge(item.priority.as_deref(), appearance);
         let status_badge = Self::render_status_badge(item.status.as_deref(), appearance);
@@ -172,72 +158,28 @@ impl HandoffPanel {
                 .finish();
         }
 
-        // Expanded body
+        // Expanded body: show description if present.
         let mut body = Flex::column();
 
-        // Action buttons: [Complete] [→ open] [→ blocked]
-        let cid = item_id.clone();
-        let cpj = project.clone();
-        let oid = item_id.clone();
-        let opj = project.clone();
-        let bid = item_id.clone();
-        let bpj = project.clone();
-
-        let complete_btn = icon_button(appearance, Icon::Check, false, MouseStateHandle::default())
-            .build()
-            .on_click(move |ctx, _, _| {
-                ctx.dispatch_typed_action(HandoffPanelAction::CompleteItem {
-                    item_id: cid.clone(),
-                    project: cpj.clone(),
-                });
-            })
-            .finish();
-
-        let open_btn = icon_button(
-            appearance,
-            Icon::CheckCircleBroken,
-            false,
-            MouseStateHandle::default(),
-        )
-        .build()
-        .on_click(move |ctx, _, _| {
-            ctx.dispatch_typed_action(HandoffPanelAction::SetStatus {
-                item_id: oid.clone(),
-                project: opj.clone(),
-                status: "open".to_string(),
-            });
-        })
-        .finish();
-
-        let blocked_btn = icon_button(
-            appearance,
-            Icon::Warning,
-            false,
-            MouseStateHandle::default(),
-        )
-        .build()
-        .on_click(move |ctx, _, _| {
-            ctx.dispatch_typed_action(HandoffPanelAction::SetStatus {
-                item_id: bid.clone(),
-                project: bpj.clone(),
-                status: "blocked".to_string(),
-            });
-        })
-        .finish();
-
-        let action_row = Container::new(
-            Flex::row()
-                .with_child(complete_btn)
-                .with_child(open_btn)
-                .with_child(blocked_btn)
-                .with_main_axis_size(MainAxisSize::Min)
-                .finish(),
-        )
-        .with_padding_left(8.)
-        .with_padding_top(4.)
-        .finish();
-
-        body = body.with_child(action_row);
+        if let Some(desc) = &item.description {
+            if !desc.trim().is_empty() {
+                let sub_color = appearance
+                    .theme()
+                    .sub_text_color(appearance.theme().background())
+                    .into_solid();
+                let desc_elem = Container::new(
+                    Text::new(desc.trim().to_string(), appearance.ui_font_family(), 11.)
+                        .with_color(sub_color)
+                        .finish(),
+                )
+                .with_padding_left(8.)
+                .with_padding_right(8.)
+                .with_padding_top(2.)
+                .with_padding_bottom(4.)
+                .finish();
+                body = body.with_child(desc_elem);
+            }
+        }
 
         Flex::column()
             .with_child(
@@ -276,68 +218,6 @@ impl warpui::TypedActionView for HandoffPanel {
                 }
                 ctx.notify();
             }
-            HandoffPanelAction::CompleteItem { item_id, project } => {
-                let item_id = item_id.clone();
-                let project = project.clone();
-                let model = self.model.clone();
-                ctx.spawn(
-                    async move { HandoffModel::complete_item(&item_id, &project) },
-                    move |me, result, ctx| {
-                        if let Err(e) = result {
-                            log::error!("complete_item: {e}");
-                        }
-                        let cwd = resolve_cwd();
-                        model.update(ctx, |m, ctx| {
-                            m.load(cwd, ctx);
-                        });
-                        me.expanded.clear();
-                        ctx.notify();
-                    },
-                );
-            }
-            HandoffPanelAction::SetStatus {
-                item_id,
-                project,
-                status,
-            } => {
-                let item_id = item_id.clone();
-                let project = project.clone();
-                let status = status.clone();
-                let model = self.model.clone();
-                ctx.spawn(
-                    async move { HandoffModel::set_item_status(&item_id, &project, &status) },
-                    move |me, result, ctx| {
-                        if let Err(e) = result {
-                            log::error!("set_item_status: {e}");
-                        }
-                        let cwd = resolve_cwd();
-                        model.update(ctx, |m, ctx| {
-                            m.load(cwd, ctx);
-                        });
-                        me.expanded.clear();
-                        ctx.notify();
-                    },
-                );
-            }
-            HandoffPanelAction::AddNote { item_id, project } => {
-                let item_id = item_id.clone();
-                let project = project.clone();
-                let model = self.model.clone();
-                ctx.spawn(
-                    async move { HandoffModel::add_note(&item_id, &project, "note") },
-                    move |me, result, ctx| {
-                        if let Err(e) = result {
-                            log::error!("add_note: {e}");
-                        }
-                        let cwd = resolve_cwd();
-                        model.update(ctx, |m, ctx| {
-                            m.load(cwd, ctx);
-                        });
-                        ctx.notify();
-                        let _ = me;
-                    },
-                );
-            }
         }
     }
 }
@@ -351,11 +231,12 @@ impl View for HandoffPanel {
         let appearance = Appearance::as_ref(app);
         let model = self.model.as_ref(app);
 
-        let project_label = if model.project.is_empty() {
-            "Handoff".to_string()
-        } else {
-            format!("Handoff — {}", model.project)
-        };
+        let cwd_label = model
+            .cwd
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("Handoff");
+        let project_label = format!("Handoff — {cwd_label}");
 
         let item_count = model.items.len();
         let count_text = format!(
@@ -445,13 +326,9 @@ impl View for HandoffPanel {
             LoadState::Loaded => {
                 if model.items.is_empty() {
                     Container::new(
-                        Text::new(
-                            "No items for this project.",
-                            appearance.ui_font_family(),
-                            11.,
-                        )
-                        .with_color(sub_color)
-                        .finish(),
+                        Text::new("No handoff items found.", appearance.ui_font_family(), 11.)
+                            .with_color(sub_color)
+                            .finish(),
                     )
                     .with_padding_left(10.)
                     .with_padding_top(8.)

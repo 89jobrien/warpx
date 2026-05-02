@@ -1,29 +1,18 @@
-use rusqlite::Connection;
 use std::path::PathBuf;
 use warpui::{Entity, ModelContext};
 
-/// A handoff item from `~/.ctx/handoff.db`.
-#[derive(Clone, Debug, PartialEq)]
+/// A handoff item parsed from a `.ctx/HANDOFF.*.yaml` file.
+#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
 pub struct HandoffItem {
-    pub project: String,
     pub id: String,
-    pub name: Option<String>,
+    pub title: Option<String>,
     pub priority: Option<String>,
     pub status: Option<String>,
     pub completed: Option<String>,
-    pub updated: String,
-    pub issue: Option<i64>,
-}
-
-/// An extra annotation attached to a handoff item.
-#[derive(Clone, Debug, PartialEq)]
-pub struct HandoffExtra {
-    pub extra_id: String,
-    pub date: String,
-    pub kind: String,
-    pub field: Option<String>,
-    pub value: Option<String>,
-    pub note: Option<String>,
+    pub description: Option<String>,
+    /// Source file this item was loaded from (not in YAML; set after parse).
+    #[serde(skip)]
+    pub source_file: String,
 }
 
 /// Load state for the panel.
@@ -36,184 +25,129 @@ pub enum LoadState {
     Error(String),
 }
 
+/// Minimal shape of a HANDOFF YAML file — only the fields we need.
+#[derive(serde::Deserialize)]
+struct HandoffFile {
+    #[serde(default)]
+    items: Vec<HandoffItem>,
+}
+
 pub struct HandoffModel {
-    pub project: String,
+    pub cwd: PathBuf,
     pub items: Vec<HandoffItem>,
-    pub extras: std::collections::HashMap<String, Vec<HandoffExtra>>,
     pub load_state: LoadState,
 }
 
 impl HandoffModel {
     pub fn new(_ctx: &mut ModelContext<Self>) -> Self {
         Self {
-            project: String::new(),
+            cwd: PathBuf::new(),
             items: Vec::new(),
-            extras: std::collections::HashMap::new(),
             load_state: LoadState::NotLoaded,
         }
     }
 
-    fn db_path() -> PathBuf {
-        dirs::home_dir()
-            .expect("unable to determine home directory for handoff database path")
-            .join(".ctx")
-            .join("handoff.db")
-    }
-
-    /// Derive project name from the git root directory name.
-    ///
-    /// Uses the directory name of the nearest git root, which matches how
-    /// `hj`/`handoff-detect` keys items in the handoff database.
-    pub fn detect_project(dir: &std::path::Path) -> Option<String> {
-        // Walk up to find .git, use that directory's name as the project key.
+    /// Find the nearest `.ctx/` directory by walking up from `dir`.
+    pub fn find_ctx_dir(dir: &std::path::Path) -> Option<PathBuf> {
         let mut current = dir;
         loop {
-            if current.join(".git").exists() {
-                return current
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .map(|s| s.to_string());
+            let candidate = current.join(".ctx");
+            if candidate.is_dir() {
+                return Some(candidate);
             }
             match current.parent() {
                 Some(parent) if parent != current => current = parent,
                 _ => break,
             }
         }
-        // Fallback: use the leaf directory name.
-        dir.file_name()
-            .and_then(|n| n.to_str())
-            .map(|s| s.to_string())
+        None
     }
 
-    /// Load items from the DB for the given cwd. Runs synchronously (called from spawn).
+    /// Load items from HANDOFF YAML files found in `.ctx/` near `dir`.
+    /// Runs synchronously (called from spawn).
     pub fn load_for_directory(dir: PathBuf) -> Result<LoadResult, String> {
-        let project = Self::detect_project(&dir).unwrap_or_else(|| "unknown".to_string());
-        log::info!("[handoff] load_for_directory dir={dir:?} project={project:?}");
+        log::info!("[handoff] load_for_directory dir={dir:?}");
 
-        let db_path = Self::db_path();
-        if !db_path.exists() {
-            return Ok(LoadResult {
-                project,
-                items: Vec::new(),
-                extras: std::collections::HashMap::new(),
-            });
-        }
+        let ctx_dir = match Self::find_ctx_dir(&dir) {
+            Some(d) => d,
+            None => {
+                log::info!("[handoff] no .ctx/ dir found from {dir:?}");
+                return Ok(LoadResult {
+                    cwd: dir,
+                    items: Vec::new(),
+                });
+            }
+        };
 
-        let conn = Connection::open(&db_path).map_err(|e| format!("open db: {e}"))?;
-        conn.execute_batch("PRAGMA journal_mode=WAL;")
-            .map_err(|e| format!("pragma: {e}"))?;
+        log::info!("[handoff] scanning {ctx_dir:?}");
 
-        let mut stmt = conn
-            .prepare(
-                "SELECT project, id, name, priority, status, completed, updated, issue \
-                 FROM items WHERE project = ? ORDER BY \
-                 CASE status WHEN 'open' THEN 0 WHEN 'blocked' THEN 1 ELSE 2 END, \
-                 CASE priority WHEN 'P0' THEN 0 WHEN 'P1' THEN 1 \
-                 WHEN 'P2' THEN 2 WHEN 'P3' THEN 3 ELSE 99 END",
-            )
-            .map_err(|e| format!("prepare items: {e}"))?;
+        let mut items: Vec<HandoffItem> = Vec::new();
 
-        let items = stmt
-            .query_map([&project], |row| {
-                Ok(HandoffItem {
-                    project: row.get(0)?,
-                    id: row.get(1)?,
-                    name: row.get(2)?,
-                    priority: row.get(3)?,
-                    status: row.get(4)?,
-                    completed: row.get(5)?,
-                    updated: row.get(6)?,
-                    issue: row.get(7)?,
-                })
-            })
-            .map_err(|e| format!("query items: {e}"))?
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| format!("collect items: {e}"))?;
+        let read_dir =
+            std::fs::read_dir(&ctx_dir).map_err(|e| format!("read_dir {ctx_dir:?}: {e}"))?;
 
-        let mut extras: std::collections::HashMap<String, Vec<HandoffExtra>> =
-            std::collections::HashMap::new();
-        if !items.is_empty() {
-            let mut estmt = conn
-                .prepare(
-                    "SELECT item_id, extra_id, date, type, field, value, note \
-                     FROM extras WHERE project = ? ORDER BY date DESC",
-                )
-                .map_err(|e| format!("prepare extras: {e}"))?;
+        for entry in read_dir.flatten() {
+            let path = entry.path();
+            let name = match path.file_name().and_then(|n| n.to_str()) {
+                Some(n) => n.to_string(),
+                None => continue,
+            };
+            // Match HANDOFF.*.yaml but exclude *.state.yaml and *.state.json
+            if !name.starts_with("HANDOFF.") {
+                continue;
+            }
+            if !name.ends_with(".yaml") {
+                continue;
+            }
+            if name.ends_with(".state.yaml") {
+                continue;
+            }
 
-            let extra_rows = estmt
-                .query_map([&project], |row| {
-                    Ok((
-                        row.get::<_, String>(0)?,
-                        HandoffExtra {
-                            extra_id: row.get(1)?,
-                            date: row.get(2)?,
-                            kind: row.get(3)?,
-                            field: row.get(4)?,
-                            value: row.get(5)?,
-                            note: row.get(6)?,
-                        },
-                    ))
-                })
-                .map_err(|e| format!("query extras: {e}"))?
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(|e| format!("collect extras: {e}"))?;
+            let content = match std::fs::read_to_string(&path) {
+                Ok(c) => c,
+                Err(e) => {
+                    log::warn!("[handoff] failed to read {path:?}: {e}");
+                    continue;
+                }
+            };
 
-            for (item_id, extra) in extra_rows {
-                extras.entry(item_id).or_default().push(extra);
+            let parsed: HandoffFile = match serde_yaml::from_str(&content) {
+                Ok(f) => f,
+                Err(e) => {
+                    log::warn!("[handoff] failed to parse {path:?}: {e}");
+                    continue;
+                }
+            };
+
+            let source = name.clone();
+            for mut item in parsed.items {
+                item.source_file = source.clone();
+                items.push(item);
             }
         }
 
-        log::info!(
-            "[handoff] loaded {} items for project {project:?}",
-            items.len()
-        );
-        Ok(LoadResult {
-            project,
-            items,
-            extras,
-        })
-    }
+        // Sort: open first, then blocked, then done; within each group by priority.
+        items.sort_by(|a, b| {
+            let status_ord = |s: Option<&str>| match s {
+                Some("open") => 0,
+                Some("blocked") => 1,
+                _ => 2,
+            };
+            let priority_ord = |p: Option<&str>| match p {
+                Some("P0") => 0,
+                Some("P1") => 1,
+                Some("P2") => 2,
+                Some("P3") => 3,
+                _ => 99,
+            };
+            let sa = status_ord(a.status.as_deref());
+            let sb = status_ord(b.status.as_deref());
+            sa.cmp(&sb)
+                .then(priority_ord(a.priority.as_deref()).cmp(&priority_ord(b.priority.as_deref())))
+        });
 
-    /// Update item status in the DB.
-    pub fn set_item_status(item_id: &str, project: &str, status: &str) -> Result<(), String> {
-        let db_path = Self::db_path();
-        let conn = Connection::open(&db_path).map_err(|e| format!("open db: {e}"))?;
-        let now = chrono::Utc::now().to_rfc3339();
-        conn.execute(
-            "UPDATE items SET status = ?, updated = ? WHERE project = ? AND id = ?",
-            rusqlite::params![status, now, project, item_id],
-        )
-        .map_err(|e| format!("update status: {e}"))?;
-        Ok(())
-    }
-
-    /// Mark item as completed in the DB.
-    pub fn complete_item(item_id: &str, project: &str) -> Result<(), String> {
-        let db_path = Self::db_path();
-        let conn = Connection::open(&db_path).map_err(|e| format!("open db: {e}"))?;
-        let now = chrono::Utc::now().to_rfc3339();
-        conn.execute(
-            "UPDATE items SET status = 'done', completed = ?, updated = ? \
-             WHERE project = ? AND id = ?",
-            rusqlite::params![now, now, project, item_id],
-        )
-        .map_err(|e| format!("complete item: {e}"))?;
-        Ok(())
-    }
-
-    /// Add a note extra to an item.
-    pub fn add_note(item_id: &str, project: &str, note: &str) -> Result<(), String> {
-        let db_path = Self::db_path();
-        let conn = Connection::open(&db_path).map_err(|e| format!("open db: {e}"))?;
-        let now = chrono::Utc::now().to_rfc3339();
-        let extra_id = format!("{}-note-{}", item_id, &now);
-        conn.execute(
-            "INSERT INTO extras (project, item_id, extra_id, date, type, note, committed) \
-             VALUES (?, ?, ?, ?, 'note', ?, 1)",
-            rusqlite::params![project, item_id, extra_id, now, note],
-        )
-        .map_err(|e| format!("insert note: {e}"))?;
-        Ok(())
+        log::info!("[handoff] loaded {} items from {ctx_dir:?}", items.len());
+        Ok(LoadResult { cwd: dir, items })
     }
 
     pub fn load(&mut self, cwd: PathBuf, ctx: &mut ModelContext<Self>) {
@@ -224,9 +158,8 @@ impl HandoffModel {
             async move { HandoffModel::load_for_directory(cwd) },
             |me, result, ctx| match result {
                 Ok(loaded) => {
-                    me.project = loaded.project;
+                    me.cwd = loaded.cwd;
                     me.items = loaded.items;
-                    me.extras = loaded.extras;
                     me.load_state = LoadState::Loaded;
                     ctx.emit(HandoffModelEvent::Loaded);
                     ctx.notify();
@@ -242,9 +175,8 @@ impl HandoffModel {
 }
 
 pub struct LoadResult {
-    pub project: String,
+    pub cwd: PathBuf,
     pub items: Vec<HandoffItem>,
-    pub extras: std::collections::HashMap<String, Vec<HandoffExtra>>,
 }
 
 impl Entity for HandoffModel {
@@ -260,66 +192,114 @@ pub enum HandoffModelEvent {
 
 #[cfg(test)]
 mod tests {
-    use super::HandoffModel;
+    use super::{HandoffItem, HandoffModel};
     use std::path::PathBuf;
 
-    fn make_git_root(base: &tempfile::TempDir, name: &str) -> PathBuf {
+    fn make_ctx_dir(base: &tempfile::TempDir, name: &str) -> PathBuf {
         let root = base.path().join(name);
-        std::fs::create_dir_all(root.join(".git")).unwrap();
+        std::fs::create_dir_all(root.join(".ctx")).unwrap();
         root
     }
 
     #[test]
-    fn detect_project_returns_git_root_dir_name() {
+    fn find_ctx_dir_finds_sibling() {
         let tmp = tempfile::tempdir().unwrap();
-        let root = make_git_root(&tmp, "warpx");
-        assert_eq!(
-            HandoffModel::detect_project(&root),
-            Some("warpx".to_string())
-        );
+        let root = make_ctx_dir(&tmp, "myproject");
+        assert_eq!(HandoffModel::find_ctx_dir(&root), Some(root.join(".ctx")));
     }
 
     #[test]
-    fn detect_project_walks_up_from_subdir() {
+    fn find_ctx_dir_walks_up() {
         let tmp = tempfile::tempdir().unwrap();
-        let root = make_git_root(&tmp, "myproject");
+        let root = make_ctx_dir(&tmp, "myproject");
         let subdir = root.join("app").join("src");
         std::fs::create_dir_all(&subdir).unwrap();
-        assert_eq!(
-            HandoffModel::detect_project(&subdir),
-            Some("myproject".to_string())
-        );
+        assert_eq!(HandoffModel::find_ctx_dir(&subdir), Some(root.join(".ctx")));
     }
 
     #[test]
-    fn detect_project_fallback_when_no_git() {
+    fn find_ctx_dir_returns_none_when_absent() {
         let tmp = tempfile::tempdir().unwrap();
-        let dir = tmp.path().join("somedir");
+        let dir = tmp.path().join("noctx");
         std::fs::create_dir_all(&dir).unwrap();
-        assert_eq!(
-            HandoffModel::detect_project(&dir),
-            Some("somedir".to_string())
-        );
+        assert_eq!(HandoffModel::find_ctx_dir(&dir), None);
     }
 
-    /// Regression: must NOT return the Cargo.toml package name.
-    /// The warpx repo has `name = "warp"` in Cargo.toml but hj keys
-    /// items by directory name "warpx". This test ensures we use the
-    /// directory name, never file content.
     #[test]
-    fn detect_project_ignores_cargo_toml_name() {
+    fn load_for_directory_reads_handoff_yaml() {
         let tmp = tempfile::tempdir().unwrap();
-        // Directory is named "warpx", Cargo.toml says name = "warp"
-        let root = make_git_root(&tmp, "warpx");
+        let ctx_dir = tmp.path().join(".ctx");
+        std::fs::create_dir_all(&ctx_dir).unwrap();
+
         std::fs::write(
-            root.join("Cargo.toml"),
-            "[package]\nname = \"warp\"\nversion = \"0.1.0\"\n",
+            ctx_dir.join("HANDOFF.myproject.proj.yaml"),
+            "items:\n- id: t1\n  title: Fix bug\n  priority: P1\n  status: open\n",
         )
         .unwrap();
-        assert_eq!(
-            HandoffModel::detect_project(&root),
-            Some("warpx".to_string()),
-            "project key must be dir name, not Cargo.toml package name"
-        );
+
+        let result = HandoffModel::load_for_directory(tmp.path().to_path_buf()).unwrap();
+        assert_eq!(result.items.len(), 1);
+        assert_eq!(result.items[0].id, "t1");
+        assert_eq!(result.items[0].title.as_deref(), Some("Fix bug"));
+        assert_eq!(result.items[0].priority.as_deref(), Some("P1"));
+    }
+
+    #[test]
+    fn load_for_directory_excludes_state_yaml() {
+        let tmp = tempfile::tempdir().unwrap();
+        let ctx_dir = tmp.path().join(".ctx");
+        std::fs::create_dir_all(&ctx_dir).unwrap();
+
+        // state files should be skipped
+        std::fs::write(
+            ctx_dir.join("HANDOFF.warp_core.proj.state.yaml"),
+            "items:\n- id: s1\n  title: Should be ignored\n  status: open\n",
+        )
+        .unwrap();
+        // real handoff file should be included
+        std::fs::write(
+            ctx_dir.join("HANDOFF.myproject.proj.yaml"),
+            "items:\n- id: t1\n  title: Real item\n  status: open\n",
+        )
+        .unwrap();
+
+        let result = HandoffModel::load_for_directory(tmp.path().to_path_buf()).unwrap();
+        assert_eq!(result.items.len(), 1);
+        assert_eq!(result.items[0].id, "t1");
+    }
+
+    #[test]
+    fn load_for_directory_sorts_open_before_done() {
+        let tmp = tempfile::tempdir().unwrap();
+        let ctx_dir = tmp.path().join(".ctx");
+        std::fs::create_dir_all(&ctx_dir).unwrap();
+
+        std::fs::write(
+            ctx_dir.join("HANDOFF.proj.proj.yaml"),
+            "items:\n\
+             - id: d1\n  title: Done item\n  priority: P0\n  status: done\n\
+             - id: o1\n  title: Open item\n  priority: P2\n  status: open\n",
+        )
+        .unwrap();
+
+        let result = HandoffModel::load_for_directory(tmp.path().to_path_buf()).unwrap();
+        assert_eq!(result.items[0].id, "o1");
+        assert_eq!(result.items[1].id, "d1");
+    }
+
+    #[test]
+    fn handoff_item_derives_clone_debug_partialeq() {
+        let item = HandoffItem {
+            id: "x".into(),
+            title: None,
+            priority: None,
+            status: None,
+            completed: None,
+            description: None,
+            source_file: String::new(),
+        };
+        let _ = item.clone();
+        let _ = format!("{item:?}");
+        assert_eq!(item, item.clone());
     }
 }
