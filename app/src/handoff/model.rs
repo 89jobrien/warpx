@@ -88,6 +88,7 @@ impl HandoffModel {
     /// Load items from the DB for the given cwd. Runs synchronously (called from spawn).
     pub fn load_for_directory(dir: PathBuf) -> Result<LoadResult, String> {
         let project = Self::detect_project(&dir).unwrap_or_else(|| "unknown".to_string());
+        log::info!("[handoff] load_for_directory dir={dir:?} project={project:?}");
 
         let db_path = Self::db_path();
         if !db_path.exists() {
@@ -162,6 +163,10 @@ impl HandoffModel {
             }
         }
 
+        log::info!(
+            "[handoff] loaded {} items for project {project:?}",
+            items.len()
+        );
         Ok(LoadResult {
             project,
             items,
@@ -251,4 +256,70 @@ pub enum HandoffModelEvent {
     Loaded,
     #[allow(dead_code)]
     Error(String),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::HandoffModel;
+    use std::path::PathBuf;
+
+    fn make_git_root(base: &tempfile::TempDir, name: &str) -> PathBuf {
+        let root = base.path().join(name);
+        std::fs::create_dir_all(root.join(".git")).unwrap();
+        root
+    }
+
+    #[test]
+    fn detect_project_returns_git_root_dir_name() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = make_git_root(&tmp, "warpx");
+        assert_eq!(
+            HandoffModel::detect_project(&root),
+            Some("warpx".to_string())
+        );
+    }
+
+    #[test]
+    fn detect_project_walks_up_from_subdir() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = make_git_root(&tmp, "myproject");
+        let subdir = root.join("app").join("src");
+        std::fs::create_dir_all(&subdir).unwrap();
+        assert_eq!(
+            HandoffModel::detect_project(&subdir),
+            Some("myproject".to_string())
+        );
+    }
+
+    #[test]
+    fn detect_project_fallback_when_no_git() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("somedir");
+        std::fs::create_dir_all(&dir).unwrap();
+        assert_eq!(
+            HandoffModel::detect_project(&dir),
+            Some("somedir".to_string())
+        );
+    }
+
+    /// Regression: must NOT return the Cargo.toml package name.
+    /// The warpx repo has `name = "warp"` in Cargo.toml but hj keys
+    /// items by directory name "warpx". This test ensures we use the
+    /// directory name, never file content.
+    #[test]
+    fn detect_project_ignores_cargo_toml_name() {
+        let tmp = tempfile::tempdir().unwrap();
+        // Directory is named "warpx", Cargo.toml says name = "warp"
+        let root = make_git_root(&tmp, "warpx");
+        std::fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"warp\"\nversion = \"0.1.0\"\n",
+        )
+        .unwrap();
+        assert_eq!(
+            HandoffModel::detect_project(&root),
+            Some("warpx".to_string()),
+            "project key must be dir name, not Cargo.toml package name"
+        );
+    }
 }
