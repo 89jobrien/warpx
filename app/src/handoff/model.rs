@@ -60,68 +60,26 @@ impl HandoffModel {
             .join("handoff.db")
     }
 
-    /// Derive project name from Cargo.toml / go.mod / pyproject.toml in `dir`.
+    /// Derive project name from the git root directory name.
+    ///
+    /// Uses the directory name of the nearest git root, which matches how
+    /// `hj`/`handoff-detect` keys items in the handoff database.
     pub fn detect_project(dir: &std::path::Path) -> Option<String> {
+        // Walk up to find .git, use that directory's name as the project key.
         let mut current = dir;
         loop {
-            let cargo = current.join("Cargo.toml");
-            if cargo.exists() {
-                if let Ok(content) = std::fs::read_to_string(&cargo) {
-                    for line in content.lines() {
-                        let trimmed = line.trim();
-                        if trimmed.starts_with("name") && trimmed.contains('=') {
-                            let parts: Vec<&str> = trimmed.splitn(2, '=').collect();
-                            if parts.len() == 2 {
-                                let name = parts[1].trim().trim_matches('"').trim_matches('\'');
-                                if !name.is_empty() {
-                                    return Some(name.to_string());
-                                }
-                            }
-                        }
-                    }
-                }
+            if current.join(".git").exists() {
+                return current
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .map(|s| s.to_string());
             }
-
-            let gomod = current.join("go.mod");
-            if gomod.exists() {
-                if let Ok(content) = std::fs::read_to_string(&gomod) {
-                    for line in content.lines() {
-                        let trimmed = line.trim();
-                        if trimmed.starts_with("module ") {
-                            let name = trimmed.strip_prefix("module ").unwrap_or(trimmed).trim();
-                            let last = name.split('/').next_back().unwrap_or(name);
-                            if !last.is_empty() {
-                                return Some(last.to_string());
-                            }
-                        }
-                    }
-                }
-            }
-
-            let pyproject = current.join("pyproject.toml");
-            if pyproject.exists() {
-                if let Ok(content) = std::fs::read_to_string(&pyproject) {
-                    for line in content.lines() {
-                        let trimmed = line.trim();
-                        if trimmed.starts_with("name") && trimmed.contains('=') {
-                            let parts: Vec<&str> = trimmed.splitn(2, '=').collect();
-                            if parts.len() == 2 {
-                                let name = parts[1].trim().trim_matches('"').trim_matches('\'');
-                                if !name.is_empty() {
-                                    return Some(name.to_string());
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
             match current.parent() {
                 Some(parent) if parent != current => current = parent,
                 _ => break,
             }
         }
-
+        // Fallback: use the leaf directory name.
         dir.file_name()
             .and_then(|n| n.to_str())
             .map(|s| s.to_string())
