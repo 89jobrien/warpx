@@ -45,6 +45,9 @@ mod gpu_state;
 mod handoff;
 mod input_classifier;
 mod interval_timer;
+// JoeMode: personal ecosystem integration (doob + godmode awareness)
+mod joe;
+pub mod joe_hooks;
 mod linear;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 mod login_item;

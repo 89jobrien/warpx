@@ -1,6 +1,6 @@
 project: warpx
 id: warpx
-updated: 2026-04-30
+updated: 2026-05-02
 items:
   - id: i1
     doob_uuid: null
@@ -61,12 +61,9 @@ log:
       custom.doob + custom.doob_urgent modules, Nu PWD hook showing overdue count on
       cd, handon banner in env.nu on shell start.
     commits:
-      - sha: 461bee6
-        branch: main
-      - sha: 03a55a9
-        branch: main
-      - sha: a90938d
-        branch: main
+      - 461bee6
+      - 03a55a9
+      - a90938d
     session: 2
   - date: 20260429:174550
     summary: |
@@ -74,14 +71,9 @@ log:
       shipped doob/handoff/env_health MCP tools to personal-mcp; installed nuenv,
       did-you-mean, toolkit-hook Nu modules in dotfiles; created ~/dev/.env.nu.
     commits:
-      - sha: f8b1337
-        branch: main
-      - sha: 124f08a
-        branch: main
-      - sha: 189037d
-        branch: main
-      - sha: c9a7c82
-        branch: main
-      - sha: d7c51b2
-        branch: main
+      - f8b1337
+      - 124f08a
+      - 189037d
+      - c9a7c82
+      - d7c51b2
     session: 1
