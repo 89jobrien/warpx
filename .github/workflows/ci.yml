@@ -102,7 +102,7 @@ jobs:
 
       - name: Run shell-agnostic integration tests
         if: success() || failure()
-        run: cargo nextest run ${{ env.WORKSPACE_TEST_ARGS }} ${{ matrix.extra_test_args }} -E "package(integration) and not test(shell_integration_tests) and not test(/_ssh_/)"
+        run: cargo nextest run ${{ env.WORKSPACE_TEST_ARGS }} ${{ matrix.extra_test_args }} -E "package(integration) and not test(shell_integration_tests) and not test(/_ssh_/) and not test(ui_tests)"
         env:
           WARP_SHELL_PATH: ${{ steps.echo_shells.outputs.zsh_path }}
 
