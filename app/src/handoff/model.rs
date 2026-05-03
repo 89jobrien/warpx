@@ -63,46 +63,27 @@ impl HandoffModel {
         None
     }
 
-    /// Load items from HANDOFF YAML files found in `.ctx/` near `dir`.
-    /// Runs synchronously (called from spawn).
-    pub fn load_for_directory(dir: PathBuf) -> Result<LoadResult, String> {
-        log::info!("[handoff] load_for_directory dir={dir:?}");
-
-        let ctx_dir = match Self::find_ctx_dir(&dir) {
-            Some(d) => d,
-            None => {
-                log::info!("[handoff] no .ctx/ dir found from {dir:?}");
-                return Ok(LoadResult {
-                    cwd: dir,
-                    items: Vec::new(),
-                });
+    /// Collect items from a single `.ctx/` directory into `items`.
+    fn scan_ctx_dir(ctx_dir: &std::path::Path, items: &mut Vec<HandoffItem>) {
+        let read_dir = match std::fs::read_dir(ctx_dir) {
+            Ok(r) => r,
+            Err(e) => {
+                log::warn!("[handoff] read_dir {ctx_dir:?}: {e}");
+                return;
             }
         };
-
-        log::info!("[handoff] scanning {ctx_dir:?}");
-
-        let mut items: Vec<HandoffItem> = Vec::new();
-
-        let read_dir =
-            std::fs::read_dir(&ctx_dir).map_err(|e| format!("read_dir {ctx_dir:?}: {e}"))?;
-
         for entry in read_dir.flatten() {
             let path = entry.path();
             let name = match path.file_name().and_then(|n| n.to_str()) {
                 Some(n) => n.to_string(),
                 None => continue,
             };
-            // Match HANDOFF.*.yaml but exclude *.state.yaml and *.state.json
-            if !name.starts_with("HANDOFF.") {
+            if !name.starts_with("HANDOFF.")
+                || !name.ends_with(".yaml")
+                || name.ends_with(".state.yaml")
+            {
                 continue;
             }
-            if !name.ends_with(".yaml") {
-                continue;
-            }
-            if name.ends_with(".state.yaml") {
-                continue;
-            }
-
             let content = match std::fs::read_to_string(&path) {
                 Ok(c) => c,
                 Err(e) => {
@@ -110,7 +91,6 @@ impl HandoffModel {
                     continue;
                 }
             };
-
             let parsed: HandoffFile = match serde_yaml::from_str(&content) {
                 Ok(f) => f,
                 Err(e) => {
@@ -118,13 +98,51 @@ impl HandoffModel {
                     continue;
                 }
             };
-
-            let source = name.clone();
             for mut item in parsed.items {
-                item.source_file = source.clone();
+                item.source_file = name.clone();
                 items.push(item);
             }
         }
+    }
+
+    /// Recursively walk `dir`, collecting items from every `.ctx/` found.
+    /// Skips hidden directories (starting with `.`) other than `.ctx` itself.
+    fn scan_recursive(dir: &std::path::Path, items: &mut Vec<HandoffItem>, depth: usize) {
+        if depth > 4 {
+            return;
+        }
+        let ctx = dir.join(".ctx");
+        if ctx.is_dir() {
+            Self::scan_ctx_dir(&ctx, items);
+        }
+        let read_dir = match std::fs::read_dir(dir) {
+            Ok(r) => r,
+            Err(_) => return,
+        };
+        for entry in read_dir.flatten() {
+            let path = entry.path();
+            if !path.is_dir() {
+                continue;
+            }
+            let name = match path.file_name().and_then(|n| n.to_str()) {
+                Some(n) => n,
+                None => continue,
+            };
+            // Skip hidden dirs (except we already handled .ctx above)
+            if name.starts_with('.') {
+                continue;
+            }
+            Self::scan_recursive(&path, items, depth + 1);
+        }
+    }
+
+    /// Load items from HANDOFF YAML files found recursively under `dir`.
+    /// Runs synchronously (called from spawn).
+    pub fn load_for_directory(dir: PathBuf) -> Result<LoadResult, String> {
+        log::info!("[handoff] load_for_directory dir={dir:?}");
+
+        let mut items: Vec<HandoffItem> = Vec::new();
+        Self::scan_recursive(&dir, &mut items, 0);
 
         // Sort: open first, then blocked, then done; within each group by priority.
         items.sort_by(|a, b| {
@@ -146,7 +164,7 @@ impl HandoffModel {
                 .then(priority_ord(a.priority.as_deref()).cmp(&priority_ord(b.priority.as_deref())))
         });
 
-        log::info!("[handoff] loaded {} items from {ctx_dir:?}", items.len());
+        log::info!("[handoff] loaded {} items from {dir:?}", items.len());
         Ok(LoadResult { cwd: dir, items })
     }
 
@@ -223,6 +241,34 @@ mod tests {
         let dir = tmp.path().join("noctx");
         std::fs::create_dir_all(&dir).unwrap();
         assert_eq!(HandoffModel::find_ctx_dir(&dir), None);
+    }
+
+    #[test]
+    fn load_for_directory_scans_subdirectories() {
+        let tmp = tempfile::tempdir().unwrap();
+        // top-level .ctx with 1 item
+        let top_ctx = tmp.path().join(".ctx");
+        std::fs::create_dir_all(&top_ctx).unwrap();
+        std::fs::write(
+            top_ctx.join("HANDOFF.top.top.yaml"),
+            "items:\n- id: top1\n  title: Top item\n  status: open\n",
+        )
+        .unwrap();
+        // subdir .ctx with 1 item
+        let sub = tmp.path().join("subproject");
+        let sub_ctx = sub.join(".ctx");
+        std::fs::create_dir_all(&sub_ctx).unwrap();
+        std::fs::write(
+            sub_ctx.join("HANDOFF.sub.sub.yaml"),
+            "items:\n- id: sub1\n  title: Sub item\n  status: open\n",
+        )
+        .unwrap();
+
+        let result = HandoffModel::load_for_directory(tmp.path().to_path_buf()).unwrap();
+        assert_eq!(result.items.len(), 2);
+        let ids: Vec<&str> = result.items.iter().map(|i| i.id.as_str()).collect();
+        assert!(ids.contains(&"top1"), "expected top1 in {ids:?}");
+        assert!(ids.contains(&"sub1"), "expected sub1 in {ids:?}");
     }
 
     #[test]
