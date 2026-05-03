@@ -3,6 +3,8 @@
 //! Reads doob status cache and godmode task graph for ambient awareness.
 //! Gated behind FeatureFlag::JoeMode — no-op when disabled.
 
+#![allow(dead_code)]
+
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 

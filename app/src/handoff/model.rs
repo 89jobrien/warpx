@@ -48,6 +48,7 @@ impl HandoffModel {
     }
 
     /// Find the nearest `.ctx/` directory by walking up from `dir`.
+    #[allow(dead_code)]
     pub fn find_ctx_dir(dir: &std::path::Path) -> Option<PathBuf> {
         let mut current = dir;
         loop {

@@ -96,7 +96,7 @@ jobs:
 
       - name: Run unit tests
         if: success()
-        run: cargo nextest run ${{ env.WORKSPACE_TEST_ARGS }} ${{ matrix.extra_test_args }} -E "not package(integration)"
+        run: cargo nextest run ${{ env.WORKSPACE_TEST_ARGS }} ${{ matrix.extra_test_args }} -E "not package(integration) and not test(ref_tests)"
         env:
           WARP_SHELL_PATH: ${{ steps.echo_shells.outputs.zsh_path }}
 

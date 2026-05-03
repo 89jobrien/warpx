@@ -76,6 +76,7 @@ impl HandoffPanel {
     }
 
     fn render_priority_badge(priority: Option<&str>, appearance: &Appearance) -> Box<dyn Element> {
+        #[allow(clippy::manual_unwrap_or)]
         let label = match priority {
             Some(p @ ("P0" | "P1" | "P2" | "P3")) => p,
             _ => "  ",
@@ -117,7 +118,7 @@ impl HandoffPanel {
                 Shrinkable::new(
                     1.0,
                     Text::new(title_text, appearance.ui_font_family(), 11.)
-                        .with_color(sub_color.clone())
+                        .with_color(sub_color)
                         .finish(),
                 )
                 .finish(),
@@ -299,7 +300,7 @@ impl View for HandoffPanel {
                             )
                             .with_child(
                                 Text::new(count_text, appearance.ui_font_family(), 10.)
-                                    .with_color(sub_color.clone())
+                                    .with_color(sub_color)
                                     .finish(),
                             )
                             .finish(),

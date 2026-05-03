@@ -5,7 +5,8 @@
 //! Gated behind FeatureFlag::JoeMode.
 
 use std::path::Path;
-use std::process::Command;
+
+use command::blocking::Command;
 
 use crate::features::FeatureFlag;
 
