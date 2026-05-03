@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 use warp_core::ui::theme::Fill;
@@ -162,6 +162,34 @@ impl HandoffPanel {
         col.finish()
     }
 
+    /// Extract project name from source filename: `HANDOFF.<id>.<project>.yaml` → `<project>`.
+    fn project_from_source(source: &str) -> &str {
+        // Strip prefix and suffix, split by '.', second-to-last segment is project.
+        let stripped = source
+            .strip_prefix("HANDOFF.")
+            .unwrap_or(source)
+            .strip_suffix(".yaml")
+            .unwrap_or(source);
+        // e.g. "warpx.warpx" → last segment
+        stripped.rsplit('.').next().unwrap_or(stripped)
+    }
+
+    fn render_project_header(project: &str, appearance: &Appearance) -> Box<dyn Element> {
+        let sub_color = appearance
+            .theme()
+            .sub_text_color(appearance.theme().background())
+            .into_solid();
+        Container::new(
+            Text::new(project.to_string(), appearance.ui_font_family(), 10.)
+                .with_color(sub_color)
+                .finish(),
+        )
+        .with_padding_left(10.)
+        .with_padding_top(6.)
+        .with_padding_bottom(2.)
+        .finish()
+    }
+
     fn render_group(
         &self,
         title: &str,
@@ -169,9 +197,25 @@ impl HandoffPanel {
         appearance: &Appearance,
     ) -> Box<dyn Element> {
         let mut col = Flex::column().with_child(Self::render_section_header(title, appearance));
+
+        // Group by project, preserving first-seen order.
+        let mut project_order: Vec<String> = Vec::new();
+        let mut by_project: HashMap<String, Vec<&HandoffItem>> = HashMap::new();
         for item in items {
-            col = col.with_child(self.render_item(item, appearance));
+            let proj = Self::project_from_source(&item.source_file).to_string();
+            if !by_project.contains_key(&proj) {
+                project_order.push(proj.clone());
+            }
+            by_project.entry(proj).or_default().push(item);
         }
+
+        for proj in &project_order {
+            col = col.with_child(Self::render_project_header(proj, appearance));
+            for item in &by_project[proj] {
+                col = col.with_child(self.render_item(item, appearance));
+            }
+        }
+
         col.finish()
     }
 }
