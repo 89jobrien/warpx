@@ -839,6 +839,10 @@ pub enum FeatureFlag {
     /// Personal fork customizations (JoeHarness, bundled skills, custom defaults).
     /// Gates all joe/main branch additions so the fork stays mergeable with upstream.
     JoeMode,
+
+    /// Fires `godmode handon` on tab open and `godmode handoff` on tab close.
+    /// Fire-and-forget — never blocks the UI thread.
+    OzSessionHooks,
 }
 
 static FLAG_STATES: [AtomicBool; cardinality::<FeatureFlag>()] =
@@ -916,6 +920,7 @@ pub const DOGFOOD_FLAGS: &[FeatureFlag] = &[
     FeatureFlag::VerticalTabsSummaryMode,
     FeatureFlag::CloudModeSetupV2,
     FeatureFlag::JoeMode,
+    FeatureFlag::OzSessionHooks,
 ];
 
 /// Features enabled for feature preview build users (e.g.: Friends of Warp).
