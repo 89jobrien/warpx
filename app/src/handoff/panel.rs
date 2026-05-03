@@ -5,8 +5,8 @@ use warp_core::ui::theme::Fill;
 use warp_core::ui::Icon;
 use warpui::{
     elements::{
-        Container, CrossAxisAlignment, Element, Flex, Hoverable, MainAxisSize, MouseStateHandle,
-        ParentElement, Shrinkable, Text,
+        ClippedScrollStateHandle, ClippedScrollable, Container, CrossAxisAlignment, Element, Flex,
+        Hoverable, MainAxisSize, MouseStateHandle, ParentElement, ScrollbarWidth, Shrinkable, Text,
     },
     ui_components::components::UiComponent,
     AppContext, Entity, SingletonEntity, View, ViewContext,
@@ -21,6 +21,7 @@ pub struct HandoffPanel {
     model: warpui::ModelHandle<HandoffModel>,
     expanded: HashSet<String>,
     refresh_mouse_state: MouseStateHandle,
+    scroll_state: ClippedScrollStateHandle,
 }
 
 #[derive(Clone, Debug)]
@@ -58,6 +59,7 @@ impl HandoffPanel {
             model,
             expanded: HashSet::new(),
             refresh_mouse_state: MouseStateHandle::default(),
+            scroll_state: ClippedScrollStateHandle::default(),
         }
     }
 
@@ -344,6 +346,7 @@ impl View for HandoffPanel {
                     .with_padding_top(8.)
                     .finish()
                 } else {
+                    let theme = appearance.theme();
                     let open: Vec<&HandoffItem> = model
                         .items
                         .iter()
@@ -370,7 +373,15 @@ impl View for HandoffPanel {
                     if !done.is_empty() {
                         col = col.with_child(self.render_group("Done", &done, appearance));
                     }
-                    Shrinkable::new(1.0, col.finish()).finish()
+                    ClippedScrollable::vertical(
+                        self.scroll_state.clone(),
+                        col.finish(),
+                        ScrollbarWidth::Auto,
+                        theme.disabled_text_color(theme.background()).into(),
+                        theme.main_text_color(theme.background()).into(),
+                        theme.background().into(),
+                    )
+                    .finish()
                 }
             }
         };
