@@ -31,6 +31,7 @@ mod crash_reporting;
 mod debounce;
 mod debug_dump;
 mod default_terminal;
+mod doob;
 mod download_method;
 mod drive;
 #[cfg(windows)]

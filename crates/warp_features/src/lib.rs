@@ -839,6 +839,9 @@ pub enum FeatureFlag {
     /// Personal fork customizations (JoeHarness, bundled skills, custom defaults).
     /// Gates all joe/main branch additions so the fork stays mergeable with upstream.
     JoeMode,
+
+    /// Doob task panel in the left sidebar — read-only view of `doob todo list --json`.
+    OzDoobPanel,
 }
 
 static FLAG_STATES: [AtomicBool; cardinality::<FeatureFlag>()] =
@@ -916,6 +919,7 @@ pub const DOGFOOD_FLAGS: &[FeatureFlag] = &[
     FeatureFlag::VerticalTabsSummaryMode,
     FeatureFlag::CloudModeSetupV2,
     FeatureFlag::JoeMode,
+    FeatureFlag::OzDoobPanel,
 ];
 
 /// Features enabled for feature preview build users (e.g.: Friends of Warp).
