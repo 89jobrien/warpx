@@ -767,7 +767,7 @@ pub(super) fn render(props: Props, app: &AppContext) -> Box<dyn Element> {
                             ));
                         }
                         AIAgentOutputMessageType::Action(AIAgentAction {
-                            action: AIAgentActionType::InsertCodeReviewComments { repo_path, .. },
+                            action: AIAgentActionType::InsertCodeReviewComments { repo_path: _, .. },
                             id,
                             ..
                         }) if FeatureFlag::PRCommentsV2.is_enabled() => {
