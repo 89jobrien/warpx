@@ -1,0 +1,35 @@
+id: wave1-session-hooks
+title: "Wave 1 — Session Lifecycle Hooks (handon / handoff)"
+plan_file: docs/superpowers/plans/2026-05-03-wave1-session-hooks.md
+date: 2026-05-03
+repo: warpx
+github_issue: 4
+status: done
+tasks:
+  - id: t1
+    title: "Discover session lifecycle wiring"
+    status: blocked
+    depends_on: []
+    notes: "No clean single tab open/close event site found in upstream codebase"
+    files: []
+  - id: t2
+    title: "Feature flag OzSessionHooks"
+    status: done
+    depends_on: []
+    files:
+      - crates/warp_features/src/lib.rs
+  - id: t3
+    title: "Implement handon/handoff hook functions"
+    status: done
+    depends_on: [t2]
+    files:
+      - app/src/joe_hooks.rs
+  - id: t4
+    title: "Wire hooks into tab lifecycle call sites"
+    status: pending
+    depends_on: [t1, t3]
+    notes: "spawn_handon/spawn_handoff ready in joe_hooks.rs — manual wiring to tab open/close sites still needed"
+    files:
+      - app/src/workspace/view/left_panel.rs
+commits:
+  - "eaeb322"

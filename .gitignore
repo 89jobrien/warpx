@@ -32,6 +32,7 @@ script/windows/Output
 .ctx/*
 !.ctx/HANDOFF.*.yaml
 .ctx/HANDOFF.*.state.yaml
+!.ctx/tasks/
 
 # temporary vim files. Source: https://github.com/github/gitignore/blob/main/Global/Vim.gitignore
 *~
@@ -69,4 +70,6 @@ __pycache__/
 .ctx/HANDOFF.*.*.state.yaml
 .ctx/HANDOFF.hj.hj.state.yaml
 .ctx/.initialized
+!.ctx/tasks/
 # handoff-end
+.worktrees/
