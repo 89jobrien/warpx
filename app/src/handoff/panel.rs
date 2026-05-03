@@ -19,7 +19,6 @@ use super::model::{HandoffItem, HandoffModel, HandoffModelEvent, LoadState};
 
 pub struct HandoffPanel {
     model: warpui::ModelHandle<HandoffModel>,
-    /// Set of item IDs currently expanded.
     expanded: HashSet<String>,
     refresh_mouse_state: MouseStateHandle,
 }
@@ -62,13 +61,22 @@ impl HandoffPanel {
         }
     }
 
+    fn render_section_header(title: &str, appearance: &Appearance) -> Box<dyn Element> {
+        Container::new(
+            Text::new(title.to_string(), appearance.ui_font_family(), 11.)
+                .with_color(appearance.theme().foreground().into_solid())
+                .finish(),
+        )
+        .with_padding_left(10.)
+        .with_padding_top(10.)
+        .with_padding_bottom(4.)
+        .finish()
+    }
+
     fn render_priority_badge(priority: Option<&str>, appearance: &Appearance) -> Box<dyn Element> {
         let label = match priority {
-            Some("P0") => "P0",
-            Some("P1") => "P1",
-            Some("P2") => "P2",
-            Some("P3") => "P3",
-            _ => "??",
+            Some(p @ ("P0" | "P1" | "P2" | "P3")) => p,
+            _ => "  ",
         };
         let color = match priority {
             Some("P0") => Fill::error().into_solid(),
@@ -79,119 +87,92 @@ impl HandoffPanel {
                 .into_solid(),
         };
         Container::new(
-            Text::new(label, appearance.ui_font_family(), 10.)
+            Text::new(label.to_string(), appearance.ui_font_family(), 9.)
                 .with_color(color)
                 .finish(),
         )
-        .with_padding_left(4.)
-        .with_padding_right(4.)
+        .with_padding_right(6.)
         .finish()
     }
 
-    fn render_status_badge(status: Option<&str>, appearance: &Appearance) -> Box<dyn Element> {
-        let (label, color) = match status {
-            Some("open") => ("open", appearance.theme().foreground().into_solid()),
-            Some("blocked") => ("blocked", Fill::warn().into_solid()),
-            Some("done") => ("done", Fill::success().into_solid()),
-            _ => (
-                "?",
-                appearance
-                    .theme()
-                    .sub_text_color(appearance.theme().background())
-                    .into_solid(),
-            ),
-        };
-        Container::new(
-            Text::new(label, appearance.ui_font_family(), 10.)
-                .with_color(color)
-                .finish(),
-        )
-        .with_padding_left(4.)
-        .with_padding_right(4.)
-        .finish()
-    }
-
-    fn render_item(
-        &self,
-        item: &HandoffItem,
-        appearance: &Appearance,
-        _app: &AppContext,
-    ) -> Box<dyn Element> {
+    fn render_item(&self, item: &HandoffItem, appearance: &Appearance) -> Box<dyn Element> {
         let is_expanded = self.expanded.contains(&item.id);
         let item_id = item.id.clone();
+        let sub_color = appearance
+            .theme()
+            .sub_text_color(appearance.theme().background())
+            .into_solid();
 
         let title_text = item.title.clone().unwrap_or_else(|| item.id.clone());
 
-        let priority_badge = Self::render_priority_badge(item.priority.as_deref(), appearance);
-        let status_badge = Self::render_status_badge(item.status.as_deref(), appearance);
-
-        let title_element = Text::new(
-            title_text,
-            appearance.ui_font_family(),
-            appearance.ui_font_size(),
-        )
-        .with_color(appearance.theme().foreground().into_solid())
-        .finish();
-
-        let header: Box<dyn Element> = Flex::row()
+        let row = Flex::row()
             .with_cross_axis_alignment(CrossAxisAlignment::Center)
-            .with_child(priority_badge)
-            .with_child(Shrinkable::new(1.0, title_element).finish())
-            .with_child(status_badge)
+            .with_child(Self::render_priority_badge(
+                item.priority.as_deref(),
+                appearance,
+            ))
+            .with_child(
+                Shrinkable::new(
+                    1.0,
+                    Text::new(title_text, appearance.ui_font_family(), 11.)
+                        .with_color(sub_color.clone())
+                        .finish(),
+                )
+                .finish(),
+            )
             .with_main_axis_size(MainAxisSize::Max)
             .finish();
 
         let row_mouse = MouseStateHandle::default();
         let row_id = item_id.clone();
-        let clickable_header = Hoverable::new(row_mouse, move |_mouse_state| header)
+        let clickable_row = Hoverable::new(row_mouse, move |_| row)
             .on_click(move |ctx, _, _| {
                 ctx.dispatch_typed_action(HandoffPanelAction::ToggleExpand(row_id.clone()));
             })
             .finish();
 
-        if !is_expanded {
-            return Container::new(clickable_header)
-                .with_padding_top(4.)
-                .with_padding_bottom(4.)
-                .with_padding_left(8.)
-                .with_padding_right(8.)
-                .finish();
-        }
-
-        // Expanded body: show description if present.
-        let mut body = Flex::column();
-
-        if let Some(desc) = &item.description {
-            if !desc.trim().is_empty() {
-                let sub_color = appearance
-                    .theme()
-                    .sub_text_color(appearance.theme().background())
-                    .into_solid();
-                let desc_elem = Container::new(
-                    Text::new(desc.trim().to_string(), appearance.ui_font_family(), 11.)
-                        .with_color(sub_color)
-                        .finish(),
-                )
-                .with_padding_left(8.)
-                .with_padding_right(8.)
+        let mut col = Flex::column().with_child(
+            Container::new(clickable_row)
+                .with_padding_left(16.)
                 .with_padding_top(2.)
-                .with_padding_bottom(4.)
-                .finish();
-                body = body.with_child(desc_elem);
+                .with_padding_bottom(2.)
+                .with_padding_right(10.)
+                .finish(),
+        );
+
+        if is_expanded {
+            if let Some(desc) = &item.description {
+                let trimmed = desc.trim();
+                if !trimmed.is_empty() {
+                    col = col.with_child(
+                        Container::new(
+                            Text::new(trimmed.to_string(), appearance.ui_font_family(), 10.)
+                                .with_color(sub_color)
+                                .finish(),
+                        )
+                        .with_padding_left(22.)
+                        .with_padding_right(10.)
+                        .with_padding_bottom(4.)
+                        .finish(),
+                    );
+                }
             }
         }
 
-        Flex::column()
-            .with_child(
-                Container::new(clickable_header)
-                    .with_padding_top(4.)
-                    .with_padding_bottom(2.)
-                    .with_padding_left(8.)
-                    .with_padding_right(8.)
-                    .finish(),
-            )
-            .with_child(body.finish())
-            .finish()
+        col.finish()
+    }
+
+    fn render_group(
+        &self,
+        title: &str,
+        items: &[&HandoffItem],
+        appearance: &Appearance,
+    ) -> Box<dyn Element> {
+        let mut col = Flex::column().with_child(Self::render_section_header(title, appearance));
+        for item in items {
+            col = col.with_child(self.render_item(item, appearance));
+        }
+        col.finish()
     }
 }
 
@@ -231,13 +212,6 @@ impl View for HandoffPanel {
         let appearance = Appearance::as_ref(app);
         let model = self.model.as_ref(app);
 
-        let cwd_label = model
-            .cwd
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("Handoff");
-        let project_label = format!("Handoff — {cwd_label}");
-
         let item_count = model.items.len();
         let count_text = format!(
             "{item_count} item{}",
@@ -270,7 +244,7 @@ impl View for HandoffPanel {
                         Flex::column()
                             .with_child(
                                 Text::new(
-                                    project_label,
+                                    "Handoff",
                                     appearance.ui_font_family(),
                                     appearance.ui_font_size(),
                                 )
@@ -279,7 +253,7 @@ impl View for HandoffPanel {
                             )
                             .with_child(
                                 Text::new(count_text, appearance.ui_font_family(), 10.)
-                                    .with_color(sub_color)
+                                    .with_color(sub_color.clone())
                                     .finish(),
                             )
                             .finish(),
@@ -293,17 +267,12 @@ impl View for HandoffPanel {
         .with_padding_left(10.)
         .with_padding_right(10.)
         .with_padding_top(8.)
-        .with_padding_bottom(8.)
+        .with_padding_bottom(4.)
         .finish();
-
-        let sub_color = appearance
-            .theme()
-            .sub_text_color(appearance.theme().background())
-            .into_solid();
 
         let body: Box<dyn Element> = match &model.load_state {
             LoadState::NotLoaded | LoadState::Loading => Container::new(
-                Text::new("Loading\u{2026}", appearance.ui_font_family(), 12.)
+                Text::new("Loading\u{2026}", appearance.ui_font_family(), 11.)
                     .with_color(sub_color)
                     .finish(),
             )
@@ -311,17 +280,14 @@ impl View for HandoffPanel {
             .with_padding_top(8.)
             .finish(),
 
-            LoadState::Error(e) => {
-                let err_text = format!("Error: {e}");
-                Container::new(
-                    Text::new(err_text, appearance.ui_font_family(), 11.)
-                        .with_color(Fill::error().into_solid())
-                        .finish(),
-                )
-                .with_padding_left(10.)
-                .with_padding_top(8.)
-                .finish()
-            }
+            LoadState::Error(e) => Container::new(
+                Text::new(format!("Error: {e}"), appearance.ui_font_family(), 11.)
+                    .with_color(Fill::error().into_solid())
+                    .finish(),
+            )
+            .with_padding_left(10.)
+            .with_padding_top(8.)
+            .finish(),
 
             LoadState::Loaded => {
                 if model.items.is_empty() {
@@ -334,9 +300,31 @@ impl View for HandoffPanel {
                     .with_padding_top(8.)
                     .finish()
                 } else {
+                    let open: Vec<&HandoffItem> = model
+                        .items
+                        .iter()
+                        .filter(|i| i.status.as_deref() == Some("open"))
+                        .collect();
+                    let blocked: Vec<&HandoffItem> = model
+                        .items
+                        .iter()
+                        .filter(|i| i.status.as_deref() == Some("blocked"))
+                        .collect();
+                    let done: Vec<&HandoffItem> = model
+                        .items
+                        .iter()
+                        .filter(|i| i.status.as_deref() == Some("done"))
+                        .collect();
+
                     let mut col = Flex::column();
-                    for item in &model.items {
-                        col = col.with_child(self.render_item(item, appearance, app));
+                    if !open.is_empty() {
+                        col = col.with_child(self.render_group("Open", &open, appearance));
+                    }
+                    if !blocked.is_empty() {
+                        col = col.with_child(self.render_group("Blocked", &blocked, appearance));
+                    }
+                    if !done.is_empty() {
+                        col = col.with_child(self.render_group("Done", &done, appearance));
                     }
                     Shrinkable::new(1.0, col.finish()).finish()
                 }
