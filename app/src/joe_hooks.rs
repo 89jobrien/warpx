@@ -42,6 +42,32 @@ pub fn on_session_close(cwd: &Path) {
         .output();
 }
 
+/// Fire-and-forget: runs `godmode handon` in background on tab open.
+/// Gated by FeatureFlag::OzSessionHooks. Never blocks the UI thread.
+pub fn spawn_handon() {
+    if !FeatureFlag::OzSessionHooks.is_enabled() {
+        return;
+    }
+    let _ = Command::new("godmode")
+        .arg("handon")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn();
+}
+
+/// Fire-and-forget: runs `godmode handoff` in background on tab close.
+/// Gated by FeatureFlag::OzSessionHooks. Never blocks the UI thread.
+pub fn spawn_handoff() {
+    if !FeatureFlag::OzSessionHooks.is_enabled() {
+        return;
+    }
+    let _ = Command::new("godmode")
+        .arg("handoff")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn();
+}
+
 /// Run on directory change. Returns doob overdue count for the new directory's repo.
 pub fn on_cwd_change(new_cwd: &Path) -> Option<String> {
     if !FeatureFlag::JoeMode.is_enabled() {
