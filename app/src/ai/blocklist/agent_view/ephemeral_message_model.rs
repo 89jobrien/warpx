@@ -65,6 +65,7 @@ pub enum EphemeralMessageModelEvent {
     MessageChanged,
 }
 
+#[allow(clippy::new_without_default)]
 impl EphemeralMessageModel {
     pub fn new() -> Self {
         Self {

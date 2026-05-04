@@ -851,6 +851,10 @@ pub enum FeatureFlag {
     /// Reads `.ctx/context.json` relative to CWD (walk-up), falls back to
     /// `~/.warp-oss/context.json`. Displays Git, AI Context, Handoff, Todos sections.
     OzProjectContext,
+
+    /// Test runner panel: shows cargo nextest / go test results as a collapsible tree
+    /// with pass/fail/skip indicators, inline failure output, and per-test re-run.
+    OzTestRunner,
 }
 
 static FLAG_STATES: [AtomicBool; cardinality::<FeatureFlag>()] =
@@ -931,6 +935,7 @@ pub const DOGFOOD_FLAGS: &[FeatureFlag] = &[
     FeatureFlag::OzDoobPanel,
     FeatureFlag::OzSessionHooks,
     FeatureFlag::OzProjectContext,
+    FeatureFlag::OzTestRunner,
 ];
 
 /// Features enabled for feature preview build users (e.g.: Friends of Warp).

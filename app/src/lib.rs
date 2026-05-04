@@ -85,6 +85,7 @@ mod shell_indicator;
 mod suggestions;
 mod system;
 mod tab;
+mod test_runner;
 #[cfg(test)]
 mod test_util;
 mod throttle;
