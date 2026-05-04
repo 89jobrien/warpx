@@ -246,7 +246,7 @@ eval set -- "$PARAMS"
 # Infer a cargo profile from the bundle configuration.
 if [[ $DEBUG = true ]]; then
   CARGO_PROFILE="dev"
-elif [[ $RELEASE_CHANNEL = "local" || $RELEASE_CHANNEL = "dev" ]]; then
+elif [[ $RELEASE_CHANNEL = "local" || $RELEASE_CHANNEL = "dev" || $RELEASE_CHANNEL = "warpx" ]]; then
   # For dev bundles, we want to enable debug assertions to
   # catch violations that would otherwise silently pass in
   # a normal release build (e.g. in stable).
@@ -304,6 +304,13 @@ elif [[ $RELEASE_CHANNEL = "oss" ]]; then
     # The OSS channel does not ship Sentry, so drop the cocoa_sentry feature
     # (which would otherwise pull in the Sentry framework dependency).
     FEATURES="release_bundle,extern_plist"
+elif [[ $RELEASE_CHANNEL = "warpx" ]]; then
+    WARP_BIN="warpx"
+    BUNDLE_ID="dev.warp.WarpX"
+    WARP_APP_NAME="WarpX"
+    WARP_SCHEME_NAME="warpx"
+    FEATURES="release_bundle,extern_plist,agent_mode_debug"
+    export FRAMEWORK_OVERRIDE="dev"
 fi
 
 OUT_DIR="target/$TARGET_PROFILE_DIR/bundle/osx"
@@ -524,6 +531,8 @@ if [[ "$ARTIFACT" == "app" ]]; then
     CLI_SCRIPT_PATH="$BUNDLED_RESOURCES_DIR/bin/oz"
   elif [[ $RELEASE_CHANNEL = "oss" ]]; then
     CLI_SCRIPT_PATH="$BUNDLED_RESOURCES_DIR/bin/warp-oss"
+  elif [[ $RELEASE_CHANNEL = "warpx" ]]; then
+    CLI_SCRIPT_PATH="$BUNDLED_RESOURCES_DIR/bin/warpx"
   else
     CLI_SCRIPT_PATH="$BUNDLED_RESOURCES_DIR/bin/oz-$RELEASE_CHANNEL"
   fi

@@ -32,7 +32,6 @@ mod crash_reporting;
 mod debounce;
 mod debug_dump;
 mod default_terminal;
-mod doob;
 mod download_method;
 mod drive;
 #[cfg(windows)]
@@ -44,12 +43,11 @@ mod external_secrets;
 mod font_fallback;
 mod global_resource_handles;
 mod gpu_state;
-mod handoff;
 mod input_classifier;
 mod interval_timer;
 // JoeMode: personal ecosystem integration (doob + godmode awareness)
 mod joe;
-pub mod joe_hooks;
+pub use joe::hooks as joe_hooks;
 mod linear;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 mod login_item;
@@ -68,7 +66,6 @@ mod prefix;
 mod preview_config_migration;
 mod pricing;
 mod profiling;
-mod project_context;
 mod projects;
 mod prompt;
 mod quit_warning;

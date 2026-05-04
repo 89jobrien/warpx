@@ -5,6 +5,7 @@ mod block_banner;
 pub mod block_onboarding;
 pub(crate) mod blocklist_filter;
 mod bookmarks;
+pub mod build_diagnostic_overlay;
 pub mod init;
 pub mod inline_banner;
 pub mod load_ai_conversation;

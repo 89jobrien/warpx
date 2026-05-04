@@ -3,7 +3,6 @@ use std::path::PathBuf;
 use warpui::{Entity, ModelContext};
 
 use crate::claude_projects;
-use crate::handoff::model as handoff_model;
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq)]
 pub struct GitSection {
@@ -152,8 +151,8 @@ impl CtxWindowModel {
                 if !path.is_dir() {
                     return None;
                 }
-                let mut raw_items: Vec<handoff_model::HandoffItem> = Vec::new();
-                handoff_model::HandoffModel::scan_ctx_dir_pub(&path.join(".ctx"), &mut raw_items);
+                let mut raw_items: Vec<warpx::handoff::HandoffItem> = Vec::new();
+                warpx::handoff::scan_ctx_dir(&path.join(".ctx"), &mut raw_items);
                 if raw_items.is_empty() {
                     return None;
                 }

@@ -14457,6 +14457,7 @@ dependencies = [
  "warp_web_event_bus",
  "warpui",
  "warpui_extras",
+ "warpx",
  "wasm-bindgen",
  "watcher",
  "web-sys",
@@ -15149,6 +15150,18 @@ dependencies = [
  "windows 0.62.2",
  "windows-registry 0.2.0",
  "windows-result 0.2.0",
+]
+
+[[package]]
+name = "warpx"
+version = "0.1.0"
+dependencies = [
+ "command",
+ "log",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tempfile",
 ]
 
 [[package]]

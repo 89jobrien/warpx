@@ -856,6 +856,10 @@ pub enum FeatureFlag {
     /// On config change, diffs the server list and starts new / stops removed / restarts changed
     /// servers, then shows a toast summarising what changed.
     OzMcpHotReload,
+
+    /// Parses build tool output (cargo, go build, tsc, ruff) into a structured
+    /// diagnostic list shown below the command block.
+    OzBuildParser,
 }
 
 static FLAG_STATES: [AtomicBool; cardinality::<FeatureFlag>()] =
@@ -937,6 +941,7 @@ pub const DOGFOOD_FLAGS: &[FeatureFlag] = &[
     FeatureFlag::OzSessionHooks,
     FeatureFlag::OzProjectContext,
     FeatureFlag::OzMcpHotReload,
+    FeatureFlag::OzBuildParser,
 ];
 
 /// Features enabled for feature preview build users (e.g.: Friends of Warp).

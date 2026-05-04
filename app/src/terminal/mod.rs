@@ -32,6 +32,7 @@ pub mod block_list_viewport;
 pub mod blockgrid_element;
 mod blockgrid_renderer;
 mod bootstrap;
+pub mod build_parser;
 mod buy_credits_banner;
 pub mod color;
 mod command_corrections_denylist;

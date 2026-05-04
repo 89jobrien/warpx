@@ -22,9 +22,9 @@ use crate::ai::agent_conversations_model::AgentConversationsModel;
 use crate::code::file_tree::FileTreeEvent;
 use crate::coding_panel_enablement_state::CodingPanelEnablementState;
 use crate::context_window::panel::CtxWindowPanel;
-use crate::doob::panel::DoobPanel;
 use crate::drive::panel::{DrivePanel, DrivePanelEvent};
-use crate::handoff::panel::HandoffPanel;
+use crate::joe::doob::panel::DoobPanel;
+use crate::joe::handoff::panel::HandoffPanel;
 use crate::pane_group::working_directories::WorkingDirectory;
 use crate::pane_group::{PaneGroup, WorkingDirectoriesEvent, WorkingDirectoriesModel};
 #[cfg(feature = "local_fs")]
