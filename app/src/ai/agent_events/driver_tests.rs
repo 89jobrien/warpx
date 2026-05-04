@@ -9,6 +9,7 @@ use futures::StreamExt;
 
 use super::*;
 use crate::server::server_api::ai::AgentRunEvent;
+use reqwest_eventsource;
 
 const ZERO_BACKOFF_STEPS: &[u64] = &[0];
 
@@ -349,4 +350,53 @@ fn failure_threshold_is_reached_at_and_above_limit() {
     assert!(!agent_event_failures_exceeded_threshold(4, 5));
     assert!(agent_event_failures_exceeded_threshold(5, 5));
     assert!(agent_event_failures_exceeded_threshold(6, 5));
+}
+
+#[test]
+fn format_sse_error_stream_ended() {
+    let msg = format_sse_error(&reqwest_eventsource::Error::StreamEnded);
+    assert!(
+        msg.contains("stream ended"),
+        "expected 'stream ended' in {msg:?}"
+    );
+}
+
+#[test]
+fn format_sse_error_invalid_last_event_id() {
+    let msg = format_sse_error(&reqwest_eventsource::Error::InvalidLastEventId(
+        "bad-id".to_string(),
+    ));
+    assert!(
+        msg.contains("bad-id"),
+        "expected last-event-id value in {msg:?}"
+    );
+}
+
+#[test]
+fn format_sse_content_type_error_includes_all_fields() {
+    let msg = format_sse_content_type_error(
+        "text/html; charset=utf-8",
+        "https://rtc.app.warp.dev/api/v1/agent/events/stream",
+        200,
+    );
+    assert!(msg.contains("text/html"), "content-type missing: {msg:?}");
+    assert!(
+        msg.contains("text/event-stream"),
+        "expected type missing: {msg:?}"
+    );
+    assert!(
+        msg.contains("https://rtc.app.warp.dev/api/v1/agent/events/stream"),
+        "url missing: {msg:?}"
+    );
+    assert!(msg.contains("200"), "status missing: {msg:?}");
+}
+
+#[test]
+fn format_sse_status_error_includes_status_and_url() {
+    let msg = format_sse_status_error(401, "https://rtc.app.warp.dev/api/v1/agent/events/stream");
+    assert!(msg.contains("401"), "status missing: {msg:?}");
+    assert!(
+        msg.contains("https://rtc.app.warp.dev/api/v1/agent/events/stream"),
+        "url missing: {msg:?}"
+    );
 }
