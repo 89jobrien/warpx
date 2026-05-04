@@ -8,7 +8,9 @@ use warp_core::{
 };
 
 fn main() -> Result<()> {
-    let config = channel_config::load_config!("local");
+    let mut config = channel_config::load_config!("local");
+    // Override the app ID so the app presents as WarpX rather than the upstream WarpLocal.
+    config.app_id = warp_core::AppId::new("dev", "warp", "WarpX");
 
     let mut state = ChannelState::new(Channel::Local, config)
         .with_additional_features(features::DEBUG_FLAGS)
