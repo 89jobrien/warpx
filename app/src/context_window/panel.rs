@@ -12,7 +12,7 @@ use crate::appearance::Appearance;
 use crate::ui_components::buttons::icon_button;
 use warp_core::ui::Icon;
 
-use super::model::{ContextState, CtxWindowModel, CtxWindowModelEvent, LoadState};
+use super::model::{ContextState, CtxWindowModel, CtxWindowModelEvent, LoadState, ProjectHandoff};
 
 pub struct CtxWindowPanel {
     model: warpui::ModelHandle<CtxWindowModel>,
@@ -232,6 +232,77 @@ impl CtxWindowPanel {
         col.finish()
     }
 
+    fn render_projects_section(
+        projects: &[ProjectHandoff],
+        appearance: &Appearance,
+    ) -> Box<dyn Element> {
+        let mut col = Flex::column();
+        col = col.with_child(Self::render_section_header("Projects", appearance));
+
+        if projects.is_empty() {
+            return col
+                .with_child(Self::render_list_item(
+                    "No cross-project handoff items",
+                    appearance,
+                ))
+                .finish();
+        }
+
+        for project in projects {
+            let sub_color = appearance
+                .theme()
+                .sub_text_color(appearance.theme().background())
+                .into_solid();
+
+            // Project name header
+            col = col.with_child(
+                Container::new(
+                    Text::new(
+                        project.project_name.clone(),
+                        appearance.ui_font_family(),
+                        10.,
+                    )
+                    .with_color(appearance.theme().foreground().into_solid())
+                    .finish(),
+                )
+                .with_padding_left(10.)
+                .with_padding_top(6.)
+                .with_padding_bottom(2.)
+                .finish(),
+            );
+
+            for item in &project.items {
+                if item.status == "done" {
+                    continue;
+                }
+                let row = Flex::row()
+                    .with_cross_axis_alignment(CrossAxisAlignment::Center)
+                    .with_child(Self::render_priority_badge(&item.priority, appearance))
+                    .with_child(
+                        Shrinkable::new(
+                            1.0,
+                            Text::new(item.summary.clone(), appearance.ui_font_family(), 10.)
+                                .with_color(sub_color)
+                                .finish(),
+                        )
+                        .finish(),
+                    )
+                    .with_main_axis_size(MainAxisSize::Max)
+                    .finish();
+                col = col.with_child(
+                    Container::new(row)
+                        .with_padding_left(16.)
+                        .with_padding_top(2.)
+                        .with_padding_bottom(2.)
+                        .with_padding_right(10.)
+                        .finish(),
+                );
+            }
+        }
+
+        col.finish()
+    }
+
     fn render_todos_section(state: &ContextState, appearance: &Appearance) -> Box<dyn Element> {
         let mut col = Flex::column();
         col = col.with_child(Self::render_section_header("Todos", appearance));
@@ -370,7 +441,10 @@ impl View for CtxWindowPanel {
                 let col = Flex::column()
                     .with_child(Self::render_git_section(&model.state, appearance))
                     .with_child(Self::render_ai_section(&model.state, appearance))
-                    .with_child(Self::render_handoff_section(&model.state, appearance))
+                    .with_child(Self::render_projects_section(
+                        &model.state.projects,
+                        appearance,
+                    ))
                     .with_child(Self::render_todos_section(&model.state, appearance));
 
                 Shrinkable::new(1.0, col.finish()).finish()

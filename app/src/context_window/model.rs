@@ -2,6 +2,9 @@ use serde::Deserialize;
 use std::path::PathBuf;
 use warpui::{Entity, ModelContext};
 
+use crate::claude_projects;
+use crate::handoff::model as handoff_model;
+
 #[derive(Clone, Debug, Default, Deserialize, PartialEq)]
 pub struct GitSection {
     #[serde(default)]
@@ -52,7 +55,15 @@ pub struct TodoSection {
     pub pending: Vec<TodoItem>,
 }
 
-/// Context state read from `~/.warp/context.json`.
+/// Handoff items aggregated from a single project's `.ctx/` directory.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ProjectHandoff {
+    pub project_name: String,
+    pub items: Vec<HandoffItem>,
+}
+
+/// Context state read from `~/.warp/context.json` (git/ai/todos)
+/// plus live cross-project handoff data from `~/.claude/projects/`.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq)]
 pub struct ContextState {
     #[serde(default)]
@@ -63,6 +74,10 @@ pub struct ContextState {
     pub handoff: HandoffSection,
     #[serde(default)]
     pub todos: TodoSection,
+    /// Live cross-project handoff items scanned from `~/.claude/projects/`.
+    /// Not deserialized from JSON — populated separately after load.
+    #[serde(skip)]
+    pub projects: Vec<ProjectHandoff>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -101,10 +116,16 @@ impl CtxWindowModel {
         let path = Self::state_path();
         ctx.spawn(
             async move {
-                let content = tokio::fs::read_to_string(&path)
+                // Load cwd-specific context from context.json (best-effort).
+                let mut state = tokio::fs::read_to_string(&path)
                     .await
-                    .map_err(|e| format!("read {}: {e}", path.display()))?;
-                serde_json::from_str::<ContextState>(&content).map_err(|e| format!("parse: {e}"))
+                    .ok()
+                    .and_then(|c| serde_json::from_str::<ContextState>(&c).ok())
+                    .unwrap_or_default();
+
+                // Aggregate live handoff data across all projects in ~/.claude/projects/.
+                state.projects = Self::scan_all_projects();
+                Ok::<ContextState, String>(state)
             },
             |me, result, ctx| match result {
                 Ok(state) => {
@@ -118,6 +139,38 @@ impl CtxWindowModel {
                 }
             },
         );
+    }
+
+    /// Scan all project directories listed in `~/.claude/projects/` and
+    /// aggregate their `.ctx/HANDOFF.*.yaml` items into `ProjectHandoff` entries.
+    /// Returns entries in the same order as `~/.claude/projects/`.
+    pub(crate) fn scan_all_projects() -> Vec<ProjectHandoff> {
+        claude_projects::read_project_entries()
+            .into_iter()
+            .filter_map(|entry| {
+                let path = &entry.decoded_path;
+                if !path.is_dir() {
+                    return None;
+                }
+                let mut raw_items: Vec<handoff_model::HandoffItem> = Vec::new();
+                handoff_model::HandoffModel::scan_ctx_dir_pub(&path.join(".ctx"), &mut raw_items);
+                if raw_items.is_empty() {
+                    return None;
+                }
+                let items = raw_items
+                    .into_iter()
+                    .map(|i| HandoffItem {
+                        summary: i.title.unwrap_or_else(|| i.id.clone()),
+                        priority: i.priority.unwrap_or_default(),
+                        status: i.status.unwrap_or_default(),
+                    })
+                    .collect();
+                Some(ProjectHandoff {
+                    project_name: entry.project_name,
+                    items,
+                })
+            })
+            .collect()
     }
 }
 

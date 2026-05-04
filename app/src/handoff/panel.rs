@@ -197,22 +197,36 @@ impl HandoffPanel {
         &self,
         title: &str,
         items: &[&HandoffItem],
+        project_order: &[String],
         appearance: &Appearance,
     ) -> Box<dyn Element> {
         let mut col = Flex::column().with_child(Self::render_section_header(title, appearance));
 
-        // Group by project, preserving first-seen order.
-        let mut project_order: Vec<String> = Vec::new();
+        // Group items by project name.
         let mut by_project: HashMap<String, Vec<&HandoffItem>> = HashMap::new();
+        let mut seen: Vec<String> = Vec::new();
         for item in items {
             let proj = Self::project_from_source(&item.source_file).to_string();
             if !by_project.contains_key(&proj) {
-                project_order.push(proj.clone());
+                seen.push(proj.clone());
             }
             by_project.entry(proj).or_default().push(item);
         }
 
-        for proj in &project_order {
+        // Order: projects in claude_projects order first, then any remainder in
+        // first-seen order (handles projects not in ~/.claude/projects/).
+        let mut ordered: Vec<String> = project_order
+            .iter()
+            .filter(|p| by_project.contains_key(*p))
+            .cloned()
+            .collect();
+        for proj in &seen {
+            if !ordered.contains(proj) {
+                ordered.push(proj.clone());
+            }
+        }
+
+        for proj in &ordered {
             col = col.with_child(Self::render_project_header(proj, appearance));
             for item in &by_project[proj] {
                 col = col.with_child(self.render_item(item, appearance));
@@ -365,14 +379,30 @@ impl View for HandoffPanel {
                         .collect();
 
                     let mut col = Flex::column();
+                    let project_order = &model.project_order;
                     if !open.is_empty() {
-                        col = col.with_child(self.render_group("Open", &open, appearance));
+                        col = col.with_child(self.render_group(
+                            "Open",
+                            &open,
+                            project_order,
+                            appearance,
+                        ));
                     }
                     if !blocked.is_empty() {
-                        col = col.with_child(self.render_group("Blocked", &blocked, appearance));
+                        col = col.with_child(self.render_group(
+                            "Blocked",
+                            &blocked,
+                            project_order,
+                            appearance,
+                        ));
                     }
                     if !done.is_empty() {
-                        col = col.with_child(self.render_group("Done", &done, appearance));
+                        col = col.with_child(self.render_group(
+                            "Done",
+                            &done,
+                            project_order,
+                            appearance,
+                        ));
                     }
                     ClippedScrollable::vertical(
                         self.scroll_state.clone(),

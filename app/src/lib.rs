@@ -14,6 +14,7 @@ mod banner;
 mod billing;
 mod changelog_model;
 mod chip_configurator;
+mod claude_projects;
 mod cloud_object;
 mod code;
 mod code_review;

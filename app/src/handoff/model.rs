@@ -1,6 +1,8 @@
 use std::path::PathBuf;
 use warpui::{Entity, ModelContext};
 
+use crate::claude_projects;
+
 /// A handoff item parsed from a `.ctx/HANDOFF.*.yaml` file.
 #[derive(Clone, Debug, PartialEq, serde::Deserialize)]
 pub struct HandoffItem {
@@ -36,6 +38,7 @@ pub struct HandoffModel {
     pub cwd: PathBuf,
     pub items: Vec<HandoffItem>,
     pub load_state: LoadState,
+    pub project_order: Vec<String>,
 }
 
 impl HandoffModel {
@@ -44,6 +47,7 @@ impl HandoffModel {
             cwd: PathBuf::new(),
             items: Vec::new(),
             load_state: LoadState::NotLoaded,
+            project_order: Vec::new(),
         }
     }
 
@@ -65,6 +69,11 @@ impl HandoffModel {
     }
 
     /// Collect items from a single `.ctx/` directory into `items`.
+    /// Public alias used by the context window aggregator.
+    pub(crate) fn scan_ctx_dir_pub(ctx_dir: &std::path::Path, items: &mut Vec<HandoffItem>) {
+        Self::scan_ctx_dir(ctx_dir, items);
+    }
+
     fn scan_ctx_dir(ctx_dir: &std::path::Path, items: &mut Vec<HandoffItem>) {
         let read_dir = match std::fs::read_dir(ctx_dir) {
             Ok(r) => r,
@@ -165,8 +174,17 @@ impl HandoffModel {
                 .then(priority_ord(a.priority.as_deref()).cmp(&priority_ord(b.priority.as_deref())))
         });
 
+        let project_order = claude_projects::read_project_entries()
+            .into_iter()
+            .map(|e| e.project_name)
+            .collect();
+
         log::info!("[handoff] loaded {} items from {dir:?}", items.len());
-        Ok(LoadResult { cwd: dir, items })
+        Ok(LoadResult {
+            cwd: dir,
+            items,
+            project_order,
+        })
     }
 
     pub fn load(&mut self, cwd: PathBuf, ctx: &mut ModelContext<Self>) {
@@ -179,6 +197,7 @@ impl HandoffModel {
                 Ok(loaded) => {
                     me.cwd = loaded.cwd;
                     me.items = loaded.items;
+                    me.project_order = loaded.project_order;
                     me.load_state = LoadState::Loaded;
                     ctx.emit(HandoffModelEvent::Loaded);
                     ctx.notify();
@@ -196,6 +215,9 @@ impl HandoffModel {
 pub struct LoadResult {
     pub cwd: PathBuf,
     pub items: Vec<HandoffItem>,
+    /// Project names in the order they appear in `~/.claude/projects/`.
+    /// Used by the panel to sort project groups consistently.
+    pub project_order: Vec<String>,
 }
 
 impl Entity for HandoffModel {
