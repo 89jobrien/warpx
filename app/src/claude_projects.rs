@@ -96,6 +96,34 @@ pub(crate) struct ProjectEntry {
     pub decoded_path: PathBuf,
 }
 
+/// Reads project entries from a custom directory — used in tests to avoid
+/// depending on the real `~/.claude/projects/` path.
+#[cfg(test)]
+pub(crate) fn read_entries_from_dir(dir: &std::path::Path) -> Vec<ProjectEntry> {
+    let read_dir = match std::fs::read_dir(dir) {
+        Ok(r) => r,
+        Err(_) => return Vec::new(),
+    };
+    let mut entries: Vec<ProjectEntry> = read_dir
+        .flatten()
+        .filter_map(|e| {
+            let name = e.file_name().into_string().ok()?;
+            if !name.starts_with('-') || !e.path().is_dir() {
+                return None;
+            }
+            let project_name = project_name_from_entry(&name);
+            let decoded_path = decode_project_path(&name);
+            Some(ProjectEntry {
+                entry_name: name,
+                project_name,
+                decoded_path,
+            })
+        })
+        .collect();
+    entries.sort_by(|a, b| a.entry_name.cmp(&b.entry_name));
+    entries
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -172,32 +200,4 @@ mod tests {
         let names: Vec<&str> = entries.iter().map(|e| e.project_name.as_str()).collect();
         assert_eq!(names, vec!["aa", "mm", "zz"]);
     }
-}
-
-/// Reads project entries from a custom directory — used in tests to avoid
-/// depending on the real `~/.claude/projects/` path.
-#[cfg(test)]
-pub(crate) fn read_entries_from_dir(dir: &std::path::Path) -> Vec<ProjectEntry> {
-    let read_dir = match std::fs::read_dir(dir) {
-        Ok(r) => r,
-        Err(_) => return Vec::new(),
-    };
-    let mut entries: Vec<ProjectEntry> = read_dir
-        .flatten()
-        .filter_map(|e| {
-            let name = e.file_name().into_string().ok()?;
-            if !name.starts_with('-') || !e.path().is_dir() {
-                return None;
-            }
-            let project_name = project_name_from_entry(&name);
-            let decoded_path = decode_project_path(&name);
-            Some(ProjectEntry {
-                entry_name: name,
-                project_name,
-                decoded_path,
-            })
-        })
-        .collect();
-    entries.sort_by(|a, b| a.entry_name.cmp(&b.entry_name));
-    entries
 }

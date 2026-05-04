@@ -9,7 +9,6 @@ use futures::StreamExt;
 
 use super::*;
 use crate::server::server_api::ai::AgentRunEvent;
-use reqwest_eventsource;
 
 const ZERO_BACKOFF_STEPS: &[u64] = &[0];
 

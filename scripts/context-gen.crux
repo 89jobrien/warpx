@@ -1,0 +1,41 @@
+pipeline: context-gen
+# Generates ~/.warp/context.json for the Context Window panel.
+# Run: cruxx run scripts/context-gen.crux scripts/input_context_gen.json
+budget: { calls: 10 }
+
+steps:
+  - step: init
+    handler: ctrl::log
+
+  - join_all: gather
+    arms:
+      - step: git_branch
+        handler: shell::capture
+        args:
+          cmd: "git branch --show-current"
+      - step: git_status
+        handler: git::status
+      - step: git_log
+        handler: shell::capture
+        args:
+          cmd: "git log --oneline -5"
+      - step: mcp_servers
+        handler: shell::capture
+        args:
+          cmd: "jq -r '.mcpServers // .servers // {} | keys[]' ~/.warp/.mcp.json 2>/dev/null || true"
+      - step: claude_md_files
+        handler: shell::capture
+        args:
+          cmd: "find . -name CLAUDE.md -maxdepth 3 2>/dev/null; test -f ~/.claude/CLAUDE.md && echo ~/.claude/CLAUDE.md || true"
+      - step: doob_todos
+        handler: shell::capture
+        args:
+          cmd: "doob todo list --status pending --format json 2>/dev/null || echo '[]'"
+
+  - step: generate
+    handler: shell::capture
+    args:
+      cmd: "warp-context-gen.rs"
+
+  - step: done
+    handler: ctrl::log
