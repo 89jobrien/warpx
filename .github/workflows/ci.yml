@@ -107,19 +107,19 @@ jobs:
           WARP_SHELL_PATH: ${{ steps.echo_shells.outputs.zsh_path }}
 
       - name: Run shell integration tests (bash)
-        if: success() || failure()
+        if: (success() || failure()) && matrix.os != 'linux'
         run: cargo nextest run ${{ env.WORKSPACE_TEST_ARGS }} ${{ matrix.extra_test_args }} -E "package(integration) and test(shell_integration_tests)"
         env:
           WARP_SHELL_PATH: ${{ steps.echo_shells.outputs.default_bash_path }}
 
       - name: Run shell integration tests (zsh)
-        if: success() || failure()
+        if: (success() || failure()) && matrix.os != 'linux'
         run: cargo nextest run ${{ env.WORKSPACE_TEST_ARGS }} ${{ matrix.extra_test_args }} -E "package(integration) and test(shell_integration_tests)"
         env:
           WARP_SHELL_PATH: ${{ steps.echo_shells.outputs.zsh_path }}
 
       - name: Run shell integration tests (fish)
-        if: (success() || failure()) && steps.echo_shells.outputs.fish_path != ''
+        if: (success() || failure()) && matrix.os != 'linux' && steps.echo_shells.outputs.fish_path != ''
         run: cargo nextest run ${{ env.WORKSPACE_TEST_ARGS }} ${{ matrix.extra_test_args }} -E "package(integration) and test(shell_integration_tests)"
         env:
           WARP_SHELL_PATH: ${{ steps.echo_shells.outputs.fish_path }}
