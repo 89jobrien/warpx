@@ -851,6 +851,14 @@ pub enum FeatureFlag {
     /// Reads `.ctx/context.json` relative to CWD (walk-up), falls back to
     /// `~/.warp-oss/context.json`. Displays Git, AI Context, Handoff, Todos sections.
     OzProjectContext,
+
+    /// Full-text search across all settings keys, descriptions, and values.
+    /// Builds a flat index at init time; filters on each keystroke.
+    OzSettingsSearch,
+
+    /// Portable settings export/import — writes `~/.warp/settings-export.toml`
+    /// and reads it back on a new machine. Does NOT include auth or secrets.
+    OzSettingsPortable,
 }
 
 static FLAG_STATES: [AtomicBool; cardinality::<FeatureFlag>()] =
@@ -931,6 +939,8 @@ pub const DOGFOOD_FLAGS: &[FeatureFlag] = &[
     FeatureFlag::OzDoobPanel,
     FeatureFlag::OzSessionHooks,
     FeatureFlag::OzProjectContext,
+    FeatureFlag::OzSettingsSearch,
+    FeatureFlag::OzSettingsPortable,
 ];
 
 /// Features enabled for feature preview build users (e.g.: Friends of Warp).
