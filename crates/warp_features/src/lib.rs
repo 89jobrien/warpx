@@ -851,6 +851,11 @@ pub enum FeatureFlag {
     /// Reads `.ctx/context.json` relative to CWD (walk-up), falls back to
     /// `~/.warp-oss/context.json`. Displays Git, AI Context, Handoff, Todos sections.
     OzProjectContext,
+
+    /// Hot-reload `~/.warp/.mcp.json` and repo-local `.mcp.json` without restarting the app.
+    /// On config change, diffs the server list and starts new / stops removed / restarts changed
+    /// servers, then shows a toast summarising what changed.
+    OzMcpHotReload,
 }
 
 static FLAG_STATES: [AtomicBool; cardinality::<FeatureFlag>()] =
@@ -931,6 +936,7 @@ pub const DOGFOOD_FLAGS: &[FeatureFlag] = &[
     FeatureFlag::OzDoobPanel,
     FeatureFlag::OzSessionHooks,
     FeatureFlag::OzProjectContext,
+    FeatureFlag::OzMcpHotReload,
 ];
 
 /// Features enabled for feature preview build users (e.g.: Friends of Warp).

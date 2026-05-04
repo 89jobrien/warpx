@@ -65,6 +65,12 @@ pub enum EphemeralMessageModelEvent {
     MessageChanged,
 }
 
+impl Default for EphemeralMessageModel {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EphemeralMessageModel {
     pub fn new() -> Self {
         Self {

@@ -197,6 +197,9 @@ impl TemplatableMCPServerManager {
             }
             // Notification for cloud-environment readiness; handled by the AgentDriver.
             FileBasedMCPManagerEvent::CloudEnvMcpScanComplete { .. } => {}
+            FileBasedMCPManagerEvent::McpConfigReloaded { restarted } => {
+                me.show_mcp_hot_reload_toast(*restarted, ctx);
+            }
         });
 
         // TemplatableMCPServerManager is the source of truth for templatable MCP servers stored on the cloud
@@ -1695,6 +1698,25 @@ impl TemplatableMCPServerManager {
         ctx: &mut ModelContext<Self>,
     ) {
         self.delete_templatable_mcp_server_installations(installation_uuids, ctx);
+    }
+
+    /// Show a toast notification summarising a hot-reload cycle.
+    fn show_mcp_hot_reload_toast(&self, restarted: usize, ctx: &mut ModelContext<Self>) {
+        let Some(window_id) = WindowManager::as_ref(ctx).active_window() else {
+            return;
+        };
+        let message = if restarted == 0 {
+            String::from("MCP config reloaded — no changes")
+        } else {
+            format!(
+                "MCP config reloaded — {restarted} server{} restarted",
+                if restarted == 1 { "" } else { "s" }
+            )
+        };
+        let toast = DismissibleToast::success(message);
+        ToastStack::handle(ctx).update(ctx, |toast_stack, ctx| {
+            toast_stack.add_ephemeral_toast(toast, window_id, ctx);
+        });
     }
 
     pub fn purge_file_based_server_credentials(
