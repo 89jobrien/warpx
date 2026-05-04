@@ -138,7 +138,7 @@ impl AgentEventSource for ServerApiAgentEventSource {
                         }
                     }
                 }
-                Err(err) => Some(Err(anyhow!("SSE stream error: {err:?}"))),
+                Err(err) => Some(Err(anyhow!("SSE stream error: {}", format_sse_error(&err)))),
             }
         });
 
@@ -363,4 +363,44 @@ pub(crate) fn agent_event_backoff(failures: usize, backoff_steps: &[u64]) -> Dur
 
 pub(crate) fn agent_event_failures_exceeded_threshold(failures: usize, threshold: usize) -> bool {
     failures >= threshold
+}
+
+/// Formats a human-readable message for an SSE content-type mismatch.
+/// Extracted for testability — called by [`format_sse_error`] with values
+/// pulled from the `reqwest::Response` inside the error.
+pub(crate) fn format_sse_content_type_error(content_type: &str, url: &str, status: u16) -> String {
+    format!(
+        "server returned {content_type:?} instead of text/event-stream \
+         (url: {url}, status: {status})"
+    )
+}
+
+/// Formats a human-readable message for an unexpected HTTP status code.
+/// Extracted for testability — called by [`format_sse_error`].
+pub(crate) fn format_sse_status_error(status: u16, url: &str) -> String {
+    format!("server returned unexpected status {status} (url: {url})")
+}
+
+/// Converts a [`reqwest_eventsource::Error`] into a diagnostic string that
+/// includes the response URL, status, and content-type where available.
+/// Used in place of the default `{err:?}` formatting so that log lines are
+/// actionable without needing to decode opaque Debug output.
+pub(crate) fn format_sse_error(err: &reqwest_eventsource::Error) -> String {
+    match err {
+        reqwest_eventsource::Error::InvalidContentType(header_value, response) => {
+            let ct = header_value.to_str().unwrap_or("<non-utf8 content-type>");
+            let url = response.url().as_str();
+            let status = response.status().as_u16();
+            format_sse_content_type_error(ct, url, status)
+        }
+        reqwest_eventsource::Error::InvalidStatusCode(status, response) => {
+            let url = response.url().as_str();
+            format_sse_status_error(status.as_u16(), url)
+        }
+        reqwest_eventsource::Error::StreamEnded => "stream ended".to_string(),
+        reqwest_eventsource::Error::InvalidLastEventId(id) => {
+            format!("invalid Last-Event-ID header value: {id:?}")
+        }
+        other => format!("{other:?}"),
+    }
 }

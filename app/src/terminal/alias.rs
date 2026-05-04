@@ -2,6 +2,7 @@ use crate::terminal::model::session::Session;
 use smol_str::SmolStr;
 use std::sync::Arc;
 use warp_completer::parsers::simple::all_parsed_commands;
+use warp_util::path::EscapeChar;
 
 /// Contains information about an aliased command.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -17,14 +18,14 @@ pub struct AliasedCommand {
 /// We don't expand on any alias that starts with itself, as it leads to
 /// cases where the alias is expanded twice: once as the user types in the
 /// editor and again by the shell when the command is entered.
-// TODO: CORE-240 Don't expand if any command in the alias value is equal
-// to the alias itself.
 pub fn is_expandable_alias(alias: &str, alias_value: &str) -> bool {
-    if let Some(command_token) = alias_value.split_whitespace().next() {
-        return alias != command_token;
+    let commands: Vec<_> = all_parsed_commands(alias_value, EscapeChar::Backslash).collect();
+    if commands.is_empty() {
+        return false;
     }
-    // If the alias value is empty, we don't expand.
-    false
+    !commands
+        .into_iter()
+        .any(|cmd| cmd.parts.first().map(|p| p.item.as_str()) == Some(alias))
 }
 
 /// Searches the source text for any aliases in a command position. Returns

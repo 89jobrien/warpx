@@ -835,6 +835,17 @@ pub enum FeatureFlag {
     VerticalTabsSummaryMode,
 
     CloudModeInputV2,
+
+    /// Personal fork customizations (JoeHarness, bundled skills, custom defaults).
+    /// Gates all joe/main branch additions so the fork stays mergeable with upstream.
+    JoeMode,
+
+    /// Doob task panel in the left sidebar — read-only view of `doob todo list --json`.
+    OzDoobPanel,
+
+    /// Fires `godmode handon` on tab open and `godmode handoff` on tab close.
+    /// Fire-and-forget — never blocks the UI thread.
+    OzSessionHooks,
 }
 
 static FLAG_STATES: [AtomicBool; cardinality::<FeatureFlag>()] =
@@ -911,6 +922,9 @@ pub const DOGFOOD_FLAGS: &[FeatureFlag] = &[
     FeatureFlag::LocalDockerSandbox,
     FeatureFlag::VerticalTabsSummaryMode,
     FeatureFlag::CloudModeSetupV2,
+    FeatureFlag::JoeMode,
+    FeatureFlag::OzDoobPanel,
+    FeatureFlag::OzSessionHooks,
 ];
 
 /// Features enabled for feature preview build users (e.g.: Friends of Warp).

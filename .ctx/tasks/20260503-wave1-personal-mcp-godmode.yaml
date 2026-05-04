@@ -1,0 +1,35 @@
+id: wave1-personal-mcp-godmode
+title: "Wave 1 — personal-mcp godmode MCP Tools"
+plan_file: docs/superpowers/plans/2026-05-03-wave1-personal-mcp-godmode.md
+date: 2026-05-03
+repo: personal-mcp
+github_issue: null
+status: done
+tasks:
+  - id: t1
+    title: "godmode_task_list tool"
+    status: done
+    files:
+      - src/godmode.rs
+  - id: t2
+    title: "godmode_task_next tool"
+    status: done
+    files:
+      - src/godmode.rs
+  - id: t3
+    title: "godmode_task_done tool"
+    status: done
+    files:
+      - src/godmode.rs
+  - id: t4
+    title: "godmode_handon tool"
+    status: done
+    files:
+      - src/godmode.rs
+  - id: t5
+    title: "godmode_handoff tool"
+    status: done
+    files:
+      - src/godmode.rs
+commits:
+  - "8757955"

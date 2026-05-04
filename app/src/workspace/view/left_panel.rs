@@ -21,7 +21,10 @@ use crate::ai::agent_conversations_model::AgentConversationsModel;
 #[cfg(feature = "local_fs")]
 use crate::code::file_tree::FileTreeEvent;
 use crate::coding_panel_enablement_state::CodingPanelEnablementState;
+use crate::context_window::panel::CtxWindowPanel;
+use crate::doob::panel::DoobPanel;
 use crate::drive::panel::{DrivePanel, DrivePanelEvent};
+use crate::handoff::panel::HandoffPanel;
 use crate::pane_group::working_directories::WorkingDirectory;
 use crate::pane_group::{PaneGroup, WorkingDirectoriesEvent, WorkingDirectoriesModel};
 #[cfg(feature = "local_fs")]
@@ -67,6 +70,8 @@ struct MouseStateHandles {
     global_search_button: MouseStateHandle,
     warp_drive_button: MouseStateHandle,
     conversation_list_view_button: MouseStateHandle,
+    handoff_button: MouseStateHandle,
+    doob_button: MouseStateHandle,
 }
 
 #[derive(Clone, Debug)]
@@ -75,6 +80,9 @@ pub enum LeftPanelAction {
     GlobalSearch { entry_focus: GlobalSearchEntryFocus },
     WarpDrive,
     ConversationListView,
+    Handoff,
+    CtxWindow,
+    Doob,
 }
 
 pub enum LeftPanelEvent {
@@ -101,6 +109,9 @@ pub enum ToolPanelView {
     GlobalSearch { entry_focus: GlobalSearchEntryFocus },
     WarpDrive,
     ConversationListView,
+    Handoff,
+    CtxWindow,
+    Doob,
 }
 
 /// Encapsulates the active view state to enforce that all mutations go through
@@ -167,6 +178,9 @@ pub struct LeftPanelView {
     close_button_mouse_state: MouseStateHandle,
     warp_drive_view: ViewHandle<DrivePanel>,
     conversation_list_view: ViewHandle<ConversationListView>,
+    handoff_panel: ViewHandle<HandoffPanel>,
+    ctx_window_panel: ViewHandle<CtxWindowPanel>,
+    doob_panel: ViewHandle<DoobPanel>,
     active_view: active_view_state::ActiveViewState,
     toolbelt_buttons: Vec<ToolbeltButtonConfig>,
     active_pane_group: Option<WeakViewHandle<PaneGroup>>,
@@ -211,6 +225,9 @@ impl LeftPanelView {
         };
         let warp_drive_view = ctx.add_typed_action_view(DrivePanel::new);
         let conversation_list_view = ctx.add_typed_action_view(ConversationListView::new);
+        let handoff_panel = ctx.add_typed_action_view(HandoffPanel::new);
+        let ctx_window_panel = ctx.add_typed_action_view(CtxWindowPanel::new);
+        let doob_panel = ctx.add_typed_action_view(DoobPanel::new);
 
         ctx.subscribe_to_view(&warp_drive_view, |_me, _, event, ctx| {
             ctx.emit(LeftPanelEvent::WarpDrive(event.clone()));
@@ -308,6 +325,9 @@ impl LeftPanelView {
             close_button_mouse_state: Default::default(),
             warp_drive_view,
             conversation_list_view,
+            handoff_panel,
+            ctx_window_panel,
+            doob_panel,
             active_view: active_view_state::new(active_view),
             toolbelt_buttons,
             active_pane_group: None,
@@ -435,6 +455,42 @@ impl LeftPanelView {
                     active_icon: Some(Icon::Conversation),
                     tooltip_text: "Agent conversations".to_string(),
                     action: LeftPanelAction::ConversationListView,
+                    render_with_active_state: false,
+                    tooltip_keybinding: toolbelt_tooltip_keybinding(&tooltip_keybinding_names, ctx),
+                    tooltip_keybinding_names,
+                }
+            }
+            ToolPanelView::Handoff => {
+                let tooltip_keybinding_names = vec![];
+                ToolbeltButtonConfig {
+                    icon: Icon::ListCollapsed,
+                    active_icon: None,
+                    tooltip_text: "Handoff".to_string(),
+                    action: LeftPanelAction::Handoff,
+                    render_with_active_state: false,
+                    tooltip_keybinding: toolbelt_tooltip_keybinding(&tooltip_keybinding_names, ctx),
+                    tooltip_keybinding_names,
+                }
+            }
+            ToolPanelView::CtxWindow => {
+                let tooltip_keybinding_names = vec![];
+                ToolbeltButtonConfig {
+                    icon: Icon::Stars,
+                    active_icon: None,
+                    tooltip_text: "Context Window".to_string(),
+                    action: LeftPanelAction::CtxWindow,
+                    render_with_active_state: false,
+                    tooltip_keybinding: toolbelt_tooltip_keybinding(&tooltip_keybinding_names, ctx),
+                    tooltip_keybinding_names,
+                }
+            }
+            ToolPanelView::Doob => {
+                let tooltip_keybinding_names = vec![];
+                ToolbeltButtonConfig {
+                    icon: Icon::ListCollapsed,
+                    active_icon: None,
+                    tooltip_text: "Doob Tasks".to_string(),
+                    action: LeftPanelAction::Doob,
                     render_with_active_state: false,
                     tooltip_keybinding: toolbelt_tooltip_keybinding(&tooltip_keybinding_names, ctx),
                     tooltip_keybinding_names,
@@ -682,6 +738,15 @@ impl LeftPanelView {
                     view.on_left_panel_focused(ctx);
                 });
             }
+            ToolPanelView::Handoff => {
+                ctx.focus(&self.handoff_panel);
+            }
+            ToolPanelView::CtxWindow => {
+                ctx.focus(&self.ctx_window_panel);
+            }
+            ToolPanelView::Doob => {
+                ctx.focus(&self.doob_panel);
+            }
         }
     }
 
@@ -834,6 +899,9 @@ impl LeftPanelView {
                 LeftPanelAction::ConversationListView => {
                     self.active_view.get() == ToolPanelView::ConversationListView
                 }
+                LeftPanelAction::Handoff => self.active_view.get() == ToolPanelView::Handoff,
+                LeftPanelAction::CtxWindow => self.active_view.get() == ToolPanelView::CtxWindow,
+                LeftPanelAction::Doob => self.active_view.get() == ToolPanelView::Doob,
             };
         }
     }
@@ -975,6 +1043,15 @@ impl LeftPanelView {
                 active_view_state::set(self, ToolPanelView::ConversationListView, ctx);
                 send_telemetry_from_ctx!(TelemetryEvent::ConversationListViewOpened, ctx);
             }
+            LeftPanelAction::Handoff => {
+                active_view_state::set(self, ToolPanelView::Handoff, ctx);
+            }
+            LeftPanelAction::CtxWindow => {
+                active_view_state::set(self, ToolPanelView::CtxWindow, ctx);
+            }
+            LeftPanelAction::Doob => {
+                active_view_state::set(self, ToolPanelView::Doob, ctx);
+            }
         }
     }
 
@@ -1074,6 +1151,9 @@ impl View for LeftPanelView {
                 }
                 ToolPanelView::WarpDrive => ctx.focus(&self.warp_drive_view),
                 ToolPanelView::ConversationListView => ctx.focus(&self.conversation_list_view),
+                ToolPanelView::Handoff => ctx.focus(&self.handoff_panel),
+                ToolPanelView::CtxWindow => ctx.focus(&self.ctx_window_panel),
+                ToolPanelView::Doob => ctx.focus(&self.doob_panel),
             }
         }
     }
@@ -1088,6 +1168,8 @@ impl View for LeftPanelView {
             self.mouse_state_handles
                 .conversation_list_view_button
                 .clone(),
+            self.mouse_state_handles.handoff_button.clone(),
+            self.mouse_state_handles.doob_button.clone(),
         ];
 
         // If there is only one button in the toolbelt row,
@@ -1145,6 +1227,15 @@ impl View for LeftPanelView {
             .finish(),
             ToolPanelView::ConversationListView => {
                 Shrinkable::new(1.0, ChildView::new(&self.conversation_list_view).finish()).finish()
+            }
+            ToolPanelView::Handoff => {
+                Shrinkable::new(1.0, ChildView::new(&self.handoff_panel).finish()).finish()
+            }
+            ToolPanelView::CtxWindow => {
+                Shrinkable::new(1.0, ChildView::new(&self.ctx_window_panel).finish()).finish()
+            }
+            ToolPanelView::Doob => {
+                Shrinkable::new(1.0, ChildView::new(&self.doob_panel).finish()).finish()
             }
         };
 

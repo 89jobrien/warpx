@@ -8,7 +8,9 @@ use warp_core::{
 };
 
 fn main() -> Result<()> {
-    let config = channel_config::load_config!("local");
+    let mut config = channel_config::load_config!("local");
+    // Override the app ID so the app presents as WarpX rather than the upstream WarpLocal.
+    config.app_id = warp_core::AppId::new("dev", "warp", "WarpX");
 
     let mut state = ChannelState::new(Channel::Local, config)
         .with_additional_features(features::DEBUG_FLAGS)
@@ -35,15 +37,15 @@ embed_plist::embed_info_plist_bytes!(r#"
     <key>CFBundleDevelopmentRegion</key>
     <string>English</string>
     <key>CFBundleDisplayName</key>
-    <string>WarpLocal</string>
+    <string>WarpX</string>
     <key>CFBundleExecutable</key>
-    <string>warp</string>
+    <string>warpx</string>
     <key>CFBundleIdentifier</key>
-    <string>dev.warp.Warp-Local</string>
+    <string>dev.warp.WarpX</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>WarpLocal</string>
+    <string>WarpX</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
@@ -55,9 +57,9 @@ embed_plist::embed_info_plist_bytes!(r#"
     <key>UIDesignRequiresCompatibility</key>
     <true/>
     <key>CFBundleURLTypes</key>
-    <array><dict><key>CFBundleURLName</key><string>Custom App</string><key>CFBundleURLSchemes</key><array><string>warplocal</string></array></dict></array>
+    <array><dict><key>CFBundleURLName</key><string>Custom App</string><key>CFBundleURLSchemes</key><array><string>warpx</string></array></dict></array>
     <key>NSHumanReadableCopyright</key>
-    <string>© 2026, Denver Technologies, Inc</string>
+    <string>© 2026, Joseph O'Brien</string>
     </dict>
     </plist>
 "#.as_bytes());

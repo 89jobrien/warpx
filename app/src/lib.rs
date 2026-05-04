@@ -14,6 +14,7 @@ mod banner;
 mod billing;
 mod changelog_model;
 mod chip_configurator;
+mod claude_projects;
 mod cloud_object;
 mod code;
 mod code_review;
@@ -23,6 +24,7 @@ mod command_palette;
 mod completer;
 #[allow(dead_code)]
 mod context_chips;
+mod context_window;
 #[cfg(enable_crash_recovery)]
 mod crash_recovery;
 #[cfg(feature = "crash_reporting")]
@@ -30,6 +32,7 @@ mod crash_reporting;
 mod debounce;
 mod debug_dump;
 mod default_terminal;
+mod doob;
 mod download_method;
 mod drive;
 #[cfg(windows)]
@@ -41,8 +44,12 @@ mod external_secrets;
 mod font_fallback;
 mod global_resource_handles;
 mod gpu_state;
+mod handoff;
 mod input_classifier;
 mod interval_timer;
+// JoeMode: personal ecosystem integration (doob + godmode awareness)
+mod joe;
+pub mod joe_hooks;
 mod linear;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 mod login_item;

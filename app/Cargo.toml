@@ -23,7 +23,7 @@ path = "src/bin/oss.rs"
 test = false
 
 [[bin]]
-name = "warp"
+name = "warpx"
 path = "src/bin/local.rs"
 test = false
 
@@ -159,6 +159,7 @@ pprof = { workspace = true, optional = true, features = ["protobuf-codec"] }
 prost.workspace = true
 prost-types.workspace = true
 rand.workspace = true
+rusqlite = { version = "0.39", features = ["bundled"] }
 rangemap.workspace = true
 rayon.workspace = true
 regex-automata = "0.4.6"
@@ -279,7 +280,7 @@ git2 = { version = "0.20.4", default-features = false, features = [
 ] }
 http_server.workspace = true
 hyper.workspace = true
-libsqlite3-sys = { version = "0.33.0", features = ["bundled"] }
+libsqlite3-sys = { version = "0.37.0", features = ["bundled"] }
 mio = { version = "1.1.1", features = ["os-poll", "os-ext"] }
 tokio.workspace = true
 tokio-util.workspace = true
@@ -623,6 +624,7 @@ default = [
     "open_warp_new_settings_modes",
     "skip_firebase_anonymous_user",
     "settings_file",
+    "oz_handoff",
 ]
 # Enable this feature to automatically perform heap profiling.  NOTE: This will
 # substantially slow down program execution.
@@ -970,13 +972,13 @@ osx_frameworks = [
 resources = ["assets/onboarding"]
 short_description = "The cloud-backed terminal for individuals and teams, developer build."
 
-[package.metadata.bundle.bin.warp]
+[package.metadata.bundle.bin.warpx]
 category = "public.app-category.developer-tools"
-copyright = "© 2025, Denver Technologies, Inc"
-identifier = "dev.warp.Warp-Local"
-name = "WarpLocal"
+copyright = "© 2026, Joseph O'Brien"
+identifier = "dev.warp.WarpX"
+name = "WarpX"
 resources = ["assets/onboarding"]
-short_description = "The cloud-backed terminal for individuals and teams, developer build."
+short_description = "Warpx — personal fork of Warp terminal with agentic customizations."
 
 [package.metadata.cargo-udeps.ignore]
 normal = ["embed_plist"]

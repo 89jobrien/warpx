@@ -1,0 +1,79 @@
+project: warpx
+id: warpx
+updated: 2026-05-04
+items:
+  - id: i1
+    doob_uuid: null
+    name: null
+    priority: P1
+    status: open
+    title: Merge personal-mcp Phase 1 MCP tools into Warp agent mode
+    description: |
+      personal-mcp now has doob_list/complete/add, handoff_scan/read/write, and env_health tools on main. Verify they appear in Warp agent mode tool list and test a live agent query against each.
+    files:
+      - ~/.warp/.mcp.json
+    completed: null
+    extra: []
+  - id: i2
+    doob_uuid: null
+    name: null
+    priority: P1
+    status: done
+    title: "Implement Phase 2: Terminal-native ecosystem hooks"
+    description: |
+      Write doob status cache (doob CLI writes ~/.cache/doob/status.json on mutation), add starship custom module reading it, wire session lifecycle hooks (handon on shell open, handoff on shell close) via Warp session events, and add nuenv directory-change hook showing overdue doob count.
+    files:
+      - dotfiles/nushell/.config/nushell/config.nu
+      - ~/.config/starship.toml
+    completed: 2026-04-30
+    extra: []
+  - id: i3
+    doob_uuid: null
+    name: null
+    priority: P2
+    status: done
+    title: Write Phase 2 implementation plan
+    description: |
+      Plan file for Phase 2 (Terminal-Native) following the same format as the Phase 1 plan at docs/superpowers/plans/2026-04-29-ecosystem-integration-phase1-mcp.md. Covers starship module, doob status.json cache, Nu session hooks.
+    files:
+      - docs/superpowers/plans/
+    completed: 2026-04-30
+    extra: []
+  - id: i4
+    doob_uuid: null
+    name: null
+    priority: P2
+    status: open
+    title: "Implement Phase 3: Doob sidebar panel in warpx"
+    description: |
+      Left sidebar panel for doob tasks. Entity-Component-Handle pattern, reads via doob_list MCP tool, inline complete/add actions. Feature-flagged. Candidate for orca-strait orchestration after Phase 2 is complete.
+    files:
+      - app/src/left_sidebar/
+      - crates/warp_features/src/lib.rs
+    completed: null
+    extra: []
+log:
+  - date: 20260430:154600
+    summary: |
+      Verified Phase 1 MCP tools live in personal-mcp (doob_list/complete/add,
+      handoff_scan/read/write, env_health). Wrote Phase 2 plan. Implemented Phase 2:
+      doob cache module (src/cache.rs, refreshes on every mutation), Starship
+      custom.doob + custom.doob_urgent modules, Nu PWD hook showing overdue count on
+      cd, handon banner in env.nu on shell start.
+    commits:
+      - 461bee6
+      - 03a55a9
+      - a90938d
+    session: 2
+  - date: 20260429:174550
+    summary: |
+      Brainstormed warpx ecosystem integration design; wrote spec and Phase 1 plan;
+      shipped doob/handoff/env_health MCP tools to personal-mcp; installed nuenv,
+      did-you-mean, toolkit-hook Nu modules in dotfiles; created ~/dev/.env.nu.
+    commits:
+      - f8b1337
+      - 124f08a
+      - 189037d
+      - c9a7c82
+      - d7c51b2
+    session: 1

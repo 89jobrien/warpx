@@ -1,0 +1,38 @@
+id: wave1-doob-sidebar-panel
+title: "Wave 1 — Doob Sidebar Panel in warpx"
+plan_file: docs/superpowers/plans/2026-05-03-wave1-doob-sidebar-panel.md
+date: 2026-05-03
+repo: warpx
+github_issue: 2
+status: done
+tasks:
+  - id: t1
+    title: "Feature flag OzDoobPanel"
+    status: done
+    depends_on: []
+    files:
+      - crates/warp_features/src/lib.rs
+  - id: t2
+    title: "DoobModel — shell out to doob CLI"
+    status: done
+    depends_on: [t1]
+    files:
+      - app/src/doob/mod.rs
+      - app/src/doob/model.rs
+  - id: t3
+    title: "DoobPanel — render the list"
+    status: done
+    depends_on: [t2]
+    files:
+      - app/src/doob/panel.rs
+  - id: t4
+    title: "Wire into left_panel.rs"
+    status: done
+    depends_on: [t3]
+    files:
+      - app/src/lib.rs
+      - app/src/app_state.rs
+      - app/src/workspace/view/left_panel.rs
+      - app/src/workspace/view.rs
+commits:
+  - "1d9f53e"

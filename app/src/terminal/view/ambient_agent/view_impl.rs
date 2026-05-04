@@ -480,14 +480,25 @@ impl TerminalView {
             .block_list()
             .active_block()
             .command_with_secrets_obfuscated(false);
+        let selected = self.ambient_agent_view_model.as_ref(ctx).selected_harness();
+        // Joe uses `braid` / `braid-cli`, which are not recognised CLIAgent variants
+        // and therefore never returned by CLIAgent::detect. Detect the command prefix
+        // directly instead.
+        if matches!(selected, Harness::Joe) {
+            return command
+                .split_whitespace()
+                .next()
+                .is_some_and(|w| w == "braid" || w == "braid-cli");
+        }
         let Some(cli_agent) = CLIAgent::detect(&command, None, None, ctx) else {
             return false;
         };
-        match self.ambient_agent_view_model.as_ref(ctx).selected_harness() {
+        match selected {
             Harness::Oz => false,
             Harness::Claude => matches!(cli_agent, CLIAgent::Claude),
             Harness::OpenCode => matches!(cli_agent, CLIAgent::OpenCode),
             Harness::Gemini => matches!(cli_agent, CLIAgent::Gemini),
+            Harness::Joe => false, // handled above
             Harness::Unknown => false,
         }
     }
