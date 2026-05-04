@@ -1,0 +1,85 @@
+#!/bin/bash
+#
+# Build and run WarpX locally without installing to /Applications.
+# Wraps the upstream script/macos/run logic for the warpx binary.
+#
+# Usage: ./scripts/warpx/run [--release] [--dont-open] [-- <warp-args>]
+#
+# Must be run from the repo root.
+
+set -e
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../.. && pwd)"
+cd "${REPO_ROOT}"
+
+WARP_BIN_NAME="warpx"
+WARP_CHANNEL="local"
+FEATURES="gui"
+WARP_APP_PATH="target/debug/bundle/osx/WarpX.app"
+DONT_OPEN=false
+WARP_ARGS=()
+
+export FRAMEWORK_OVERRIDE="dev"
+
+PARAMS=""
+while (( "$#" )); do
+  case "$1" in
+    --)
+      shift
+      WARP_ARGS=("$@")
+      break
+      ;;
+    --dont-open)
+      DONT_OPEN=true
+      shift
+      ;;
+    --release)
+      WARP_APP_PATH="target/release/bundle/osx/WarpX.app"
+      PARAMS="$PARAMS $1"
+      shift
+      ;;
+    --profile)
+      PROFILE="$2"
+      shift 2
+      WARP_APP_PATH="target/${PROFILE}/bundle/osx/WarpX.app"
+      PARAMS="$PARAMS --profile $PROFILE"
+      ;;
+    *)
+      PARAMS="$PARAMS $1"
+      shift
+      ;;
+  esac
+done
+
+rm -rf "$WARP_APP_PATH"
+
+pushd app > /dev/null
+echo "Bundling WarpX (bin: $WARP_BIN_NAME)..."
+cargo bundle --bin "$WARP_BIN_NAME" --features "$FEATURES" $PARAMS
+echo "Bundle complete."
+popd > /dev/null
+
+echo "Adding rpath for mac frameworks..."
+install_name_tool -add_rpath "@executable_path/../Frameworks" \
+    "$WARP_APP_PATH/Contents/MacOS/$WARP_BIN_NAME"
+
+export WARP_SCHEME_NAME="warpx"
+export WARP_PLIST_PATH="$WARP_APP_PATH/Contents/Info.plist"
+./script/update_plist
+
+echo "Preparing bundled resources..."
+export SKIP_SETTINGS_SCHEMA=1
+NO_LICENSES=1 "${REPO_ROOT}/script/prepare_bundled_resources" \
+    "$WARP_APP_PATH/Contents/Resources" "$WARP_CHANNEL"
+
+"${REPO_ROOT}/script/compile_icon" "$WARP_CHANNEL" "$WARP_APP_PATH"
+
+echo "Codesigning..."
+SIGNING_CERT="$(security find-identity -p codesigning -v | grep "Apple Development" | awk '{print $2}' | head -1)"
+codesign --force --deep --options runtime --sign "${SIGNING_CERT:--}" \
+    "$WARP_APP_PATH" --entitlements script/Debug-Entitlements.plist
+
+if [ "$DONT_OPEN" = false ]; then
+    echo "Launching $WARP_APP_PATH..."
+    "./$WARP_APP_PATH/Contents/MacOS/$WARP_BIN_NAME" "${WARP_ARGS[@]}"
+fi

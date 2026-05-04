@@ -1,0 +1,72 @@
+#!/bin/bash
+#
+# Build WarpX.app and install it to /Applications/WarpX.app.
+#
+# Usage: ./scripts/warpx/install [--release]
+#        Default: debug build. Pass --release for an optimized build.
+#
+# Must be run from the repo root.
+
+set -e
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../.. && pwd)"
+cd "${REPO_ROOT}"
+
+WARP_BIN_NAME="warpx"
+WARP_CHANNEL="local"
+FEATURES="gui"
+INSTALL_DIR="/Applications"
+APP_NAME="WarpX.app"
+BUILD_MODE="debug"
+
+export FRAMEWORK_OVERRIDE="dev"
+
+PARAMS=""
+while (( "$#" )); do
+  case "$1" in
+    --release)
+      BUILD_MODE="release"
+      PARAMS="$PARAMS $1"
+      shift
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      exit 1
+      ;;
+  esac
+done
+
+WARP_APP_PATH="target/${BUILD_MODE}/bundle/osx/${APP_NAME}"
+
+echo "Building WarpX (${BUILD_MODE})..."
+rm -rf "$WARP_APP_PATH"
+
+pushd app > /dev/null
+cargo bundle --bin "$WARP_BIN_NAME" --features "$FEATURES" $PARAMS
+popd > /dev/null
+
+echo "Adding rpath for mac frameworks..."
+install_name_tool -add_rpath "@executable_path/../Frameworks" \
+    "$WARP_APP_PATH/Contents/MacOS/$WARP_BIN_NAME"
+
+export WARP_SCHEME_NAME="warpx"
+export WARP_PLIST_PATH="$WARP_APP_PATH/Contents/Info.plist"
+./script/update_plist
+
+echo "Preparing bundled resources..."
+export SKIP_SETTINGS_SCHEMA=1
+NO_LICENSES=1 "${REPO_ROOT}/script/prepare_bundled_resources" \
+    "$WARP_APP_PATH/Contents/Resources" "$WARP_CHANNEL"
+
+"${REPO_ROOT}/script/compile_icon" "$WARP_CHANNEL" "$WARP_APP_PATH"
+
+echo "Codesigning..."
+SIGNING_CERT="$(security find-identity -p codesigning -v | grep "Apple Development" | awk '{print $2}' | head -1)"
+codesign --force --deep --options runtime --sign "${SIGNING_CERT:--}" \
+    "$WARP_APP_PATH" --entitlements script/Debug-Entitlements.plist
+
+echo "Installing to ${INSTALL_DIR}/${APP_NAME}..."
+rm -rf "${INSTALL_DIR}/${APP_NAME}"
+cp -a "$WARP_APP_PATH" "${INSTALL_DIR}/${APP_NAME}"
+
+echo "WarpX installed to ${INSTALL_DIR}/${APP_NAME}"
