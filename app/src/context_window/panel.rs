@@ -192,46 +192,6 @@ impl CtxWindowPanel {
         col.finish()
     }
 
-    fn render_handoff_section(state: &ContextState, appearance: &Appearance) -> Box<dyn Element> {
-        let mut col = Flex::column();
-        col = col.with_child(Self::render_section_header("Handoff", appearance));
-
-        if state.handoff.items.is_empty() {
-            col = col.with_child(Self::render_list_item("No items", appearance));
-        } else {
-            for item in &state.handoff.items {
-                let sub_color = appearance
-                    .theme()
-                    .sub_text_color(appearance.theme().background())
-                    .into_solid();
-                let row = Flex::row()
-                    .with_cross_axis_alignment(CrossAxisAlignment::Center)
-                    .with_child(Self::render_priority_badge(&item.priority, appearance))
-                    .with_child(
-                        Shrinkable::new(
-                            1.0,
-                            Text::new(item.summary.clone(), appearance.ui_font_family(), 10.)
-                                .with_color(sub_color)
-                                .finish(),
-                        )
-                        .finish(),
-                    )
-                    .with_main_axis_size(MainAxisSize::Max)
-                    .finish();
-                col = col.with_child(
-                    Container::new(row)
-                        .with_padding_left(16.)
-                        .with_padding_top(2.)
-                        .with_padding_bottom(2.)
-                        .with_padding_right(10.)
-                        .finish(),
-                );
-            }
-        }
-
-        col.finish()
-    }
-
     fn render_projects_section(
         projects: &[ProjectHandoff],
         appearance: &Appearance,
