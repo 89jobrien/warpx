@@ -168,6 +168,11 @@ impl FileBasedMCPManager {
             .cloned()
             .unwrap_or_default();
 
+        // Track whether this is a live reload (we already had servers for this slot)
+        // so we can emit a toast notification after the diff.
+        let is_reload =
+            FeatureFlag::OzMcpHotReload.is_enabled() && !previous_scanned_servers.is_empty();
+
         let mut servers_to_spawn = Vec::new();
         let mut scanned_servers = HashSet::new();
         for server in parsed_servers {
@@ -194,6 +199,8 @@ impl FileBasedMCPManager {
                 .insert(hash);
             scanned_servers.insert(hash);
         }
+
+        let spawned_count = servers_to_spawn.len();
 
         // If file-based MCP is enabled, spawn any new servers.
         self.spawn_file_based_servers(servers_to_spawn, ctx);
@@ -227,8 +234,17 @@ impl FileBasedMCPManager {
             self.file_based_servers_by_root.remove(&root_path);
         }
 
+        let removed_count = servers_to_remove.len();
+
         // If orphaned servers are found, remove them and purge their credentials.
         self.remove_if_orphaned(servers_to_remove, ctx);
+
+        // When hot-reload is enabled and this is a live config change (not initial load),
+        // emit a notification so the UI can show a toast.
+        if is_reload {
+            let restarted = spawned_count + removed_count;
+            ctx.emit(FileBasedMCPManagerEvent::McpConfigReloaded { restarted });
+        }
     }
 
     /// Returns `true` if the server identified by `hash` is referenced from any global
@@ -453,6 +469,12 @@ pub enum FileBasedMCPManagerEvent {
         repo_path: PathBuf,
         server_uuids: Vec<Uuid>,
     },
+    /// Emitted (when [`FeatureFlag::OzMcpHotReload`] is enabled) after a live config
+    /// reload finishes diffing.  `restarted` is the number of servers that were
+    /// removed or re-spawned as part of this reload cycle.
+    McpConfigReloaded {
+        restarted: usize,
+    },
 }
 
 impl Entity for FileBasedMCPManager {
@@ -464,3 +486,7 @@ impl SingletonEntity for FileBasedMCPManager {}
 #[cfg(test)]
 #[path = "file_based_manager_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "mcp_hot_reload_tests.rs"]
+mod hot_reload_tests;
