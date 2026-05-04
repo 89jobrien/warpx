@@ -62,8 +62,16 @@ NO_LICENSES=1 "${REPO_ROOT}/script/prepare_bundled_resources" \
 
 echo "Codesigning..."
 SIGNING_CERT="$(security find-identity -p codesigning -v | grep "Apple Development" | awk '{print $2}' | head -1)"
+if [ -z "$SIGNING_CERT" ]; then
+    echo "Warning: no Apple Development cert found — using ad-hoc signature (URL scheme registration will not work)" >&2
+fi
+if [ "$BUILD_MODE" = "release" ]; then
+    ENTITLEMENTS="script/Entitlements.plist"
+else
+    ENTITLEMENTS="script/Debug-Entitlements.plist"
+fi
 codesign --force --deep --options runtime --sign "${SIGNING_CERT:--}" \
-    "$WARP_APP_PATH" --entitlements script/Debug-Entitlements.plist
+    "$WARP_APP_PATH" --entitlements "$ENTITLEMENTS"
 
 echo "Installing to ${INSTALL_DIR}/${APP_NAME}..."
 rm -rf "${INSTALL_DIR}/${APP_NAME}"
