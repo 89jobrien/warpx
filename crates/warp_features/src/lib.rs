@@ -846,6 +846,11 @@ pub enum FeatureFlag {
     /// Fires `godmode handon` on tab open and `godmode handoff` on tab close.
     /// Fire-and-forget — never blocks the UI thread.
     OzSessionHooks,
+
+    /// Project-local context panel on the right side of the workspace.
+    /// Reads `.ctx/context.json` relative to CWD (walk-up), falls back to
+    /// `~/.warp-oss/context.json`. Displays Git, AI Context, Handoff, Todos sections.
+    OzProjectContext,
 }
 
 static FLAG_STATES: [AtomicBool; cardinality::<FeatureFlag>()] =
@@ -925,6 +930,7 @@ pub const DOGFOOD_FLAGS: &[FeatureFlag] = &[
     FeatureFlag::JoeMode,
     FeatureFlag::OzDoobPanel,
     FeatureFlag::OzSessionHooks,
+    FeatureFlag::OzProjectContext,
 ];
 
 /// Features enabled for feature preview build users (e.g.: Friends of Warp).

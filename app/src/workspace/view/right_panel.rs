@@ -10,6 +10,7 @@ use crate::code_review::telemetry_event::CodeReviewContextDestination;
 use crate::pane_group::pane::view::header::{components::HEADER_EDGE_PADDING, PANE_HEADER_HEIGHT};
 use crate::pane_group::WorkingDirectoriesEvent;
 use crate::pane_group::{Event as PaneGroupEvent, PaneGroup, WorkingDirectoriesModel};
+use crate::project_context::panel::ProjectContextPanel;
 use crate::settings::{AISettings, AISettingsChangedEvent};
 use crate::terminal::cli_agent_sessions::CLIAgentSessionsModel;
 use crate::terminal::input::MenuPositioning;
@@ -341,6 +342,7 @@ pub struct RightPanelView {
     code_review_session_env: Option<CodeReviewSessionEnv>,
     is_agent_management_view_open: bool,
     panel_position: super::PanelPosition,
+    project_context_panel: ViewHandle<ProjectContextPanel>,
 }
 
 impl RightPanelView {
@@ -422,6 +424,8 @@ impl RightPanelView {
                 .on_click(|ctx| ctx.dispatch_typed_action(RightPanelAction::OpenRepository))
         });
 
+        let project_context_panel = ctx.add_typed_action_view(ProjectContextPanel::new);
+
         Self {
             resizable_state_handle,
             close_button_mouse_state: Default::default(),
@@ -436,6 +440,7 @@ impl RightPanelView {
             code_review_session_env: None,
             is_agent_management_view_open: false,
             panel_position: super::PanelPosition::Right,
+            project_context_panel,
         }
     }
 
@@ -824,6 +829,8 @@ impl RightPanelView {
                 .with_child(header)
                 .with_child(code_review_content)
                 .finish()
+        } else if FeatureFlag::OzProjectContext.is_enabled() {
+            Shrinkable::new(1.0, ChildView::new(&self.project_context_panel).finish()).finish()
         } else {
             let simple_header = self.render_simple_header(close_button);
             Flex::column()
