@@ -869,6 +869,10 @@ pub enum FeatureFlag {
     /// Portable settings export/import — writes `~/.warp/settings-export.toml`
     /// and reads it back on a new machine. Does NOT include auth or secrets.
     OzSettingsPortable,
+
+    /// Detect keybinding conflicts at load time and surface a warning toast when user config
+    /// binds the same chord to multiple actions.
+    OzKeybindConflicts,
 }
 
 static FLAG_STATES: [AtomicBool; cardinality::<FeatureFlag>()] =
@@ -954,6 +958,7 @@ pub const DOGFOOD_FLAGS: &[FeatureFlag] = &[
     FeatureFlag::OzTestRunner,
     FeatureFlag::OzSettingsSearch,
     FeatureFlag::OzSettingsPortable,
+    FeatureFlag::OzKeybindConflicts,
 ];
 
 /// Features enabled for feature preview build users (e.g.: Friends of Warp).
