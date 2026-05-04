@@ -15,6 +15,7 @@ use crate::settings::{AISettings, AISettingsChangedEvent};
 use crate::terminal::cli_agent_sessions::CLIAgentSessionsModel;
 use crate::terminal::input::MenuPositioning;
 use crate::terminal::CLIAgent;
+use crate::test_runner::panel::TestRunnerPanel;
 use crate::ui_components::{buttons::icon_button_with_color, icons};
 use crate::util::bindings::{keybinding_name_to_display_string, CustomAction};
 #[cfg(feature = "local_fs")]
@@ -343,6 +344,7 @@ pub struct RightPanelView {
     is_agent_management_view_open: bool,
     panel_position: super::PanelPosition,
     project_context_panel: ViewHandle<ProjectContextPanel>,
+    test_runner_panel: ViewHandle<TestRunnerPanel>,
 }
 
 impl RightPanelView {
@@ -425,6 +427,7 @@ impl RightPanelView {
         });
 
         let project_context_panel = ctx.add_typed_action_view(ProjectContextPanel::new);
+        let test_runner_panel = ctx.add_typed_action_view(TestRunnerPanel::new);
 
         Self {
             resizable_state_handle,
@@ -441,6 +444,7 @@ impl RightPanelView {
             is_agent_management_view_open: false,
             panel_position: super::PanelPosition::Right,
             project_context_panel,
+            test_runner_panel,
         }
     }
 
@@ -829,6 +833,8 @@ impl RightPanelView {
                 .with_child(header)
                 .with_child(code_review_content)
                 .finish()
+        } else if FeatureFlag::OzTestRunner.is_enabled() {
+            Shrinkable::new(1.0, ChildView::new(&self.test_runner_panel).finish()).finish()
         } else if FeatureFlag::OzProjectContext.is_enabled() {
             Shrinkable::new(1.0, ChildView::new(&self.project_context_panel).finish()).finish()
         } else {

@@ -860,6 +860,10 @@ pub enum FeatureFlag {
     /// Parses build tool output (cargo, go build, tsc, ruff) into a structured
     /// diagnostic list shown below the command block.
     OzBuildParser,
+
+    /// Test runner panel: shows cargo nextest / go test results as a collapsible tree
+    /// with pass/fail/skip indicators, inline failure output, and per-test re-run.
+    OzTestRunner,
 }
 
 static FLAG_STATES: [AtomicBool; cardinality::<FeatureFlag>()] =
@@ -942,6 +946,7 @@ pub const DOGFOOD_FLAGS: &[FeatureFlag] = &[
     FeatureFlag::OzProjectContext,
     FeatureFlag::OzMcpHotReload,
     FeatureFlag::OzBuildParser,
+    FeatureFlag::OzTestRunner,
 ];
 
 /// Features enabled for feature preview build users (e.g.: Friends of Warp).
