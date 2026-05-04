@@ -383,9 +383,9 @@ rmcp = { git = "https://github.com/warpdotdev/rmcp.git", rev = "c0f65dc441af7d71
 # better stack traces in sentry. But there is a cost of about 20% binary size
 # increase.
 [profile.release]
-debug = true
+debug = false
 # Force the rust compiler to create a dSYM. Starting in 1.53 the default on MacOS is "unpacked".
-split-debuginfo = "packed"
+# split-debuginfo = "packed"
 
 [profile.dev]
 # Use line-tables-only to speed up dev builds. Change to `debug = true` if you

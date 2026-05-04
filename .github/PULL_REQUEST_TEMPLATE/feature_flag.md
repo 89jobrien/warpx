@@ -23,7 +23,6 @@ This PR template helps ensure that as we launch new features we appropriately co
 - [ ] Tested on multiple themes (both dark and light)
 - [ ] If the feature being released relies on some server API, has that server API been stable on production for at least one full server release cycle? See [here](https://www.notion.so/warpdev/How-to-add-a-new-full-stack-feature-8412cede405a4ec194b32bdd4b951035?pvs=4#73b202f939834b97ab1fbdf7fc82cd53) for more details.
 
-
 ## Content checklist
 
 - [ ] Help content

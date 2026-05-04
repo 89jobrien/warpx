@@ -1008,7 +1008,8 @@ jobs:
   release_linux_arm:
     name: Bundle Release (Linux ARM)
     runs-on: namespace-profile-ubuntu-20-04
-    needs: [ prepare_release, build_linux_arm_binaries, build_linux_cli_arm_binaries ]
+    needs:
+      [prepare_release, build_linux_arm_binaries, build_linux_cli_arm_binaries]
     if: ${{ inputs.build_linux != false }}
     timeout-minutes: 60
     steps:
@@ -1027,7 +1028,7 @@ jobs:
       - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
         with:
           credentials_json: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
-      
+
       - name: Set up Sentry CLI
         if: ${{ needs.prepare_release.outputs.should_publish == 'true' }}
         uses: matbour/setup-sentry-cli@3e938c54b3018bdd019973689ef984e033b0454b # v2.0.0
@@ -1082,7 +1083,7 @@ jobs:
 
           # Retrieve our signing key and import it into gpg.
           gcloud --project astral-field-294621 secrets versions access latest --secret=linux-releases-pgp-key | gpg --batch --import
-      
+
           # Populate the passphrase for our signing key in the gpg-agent cache.
           # by signing an empty file.
           touch emptyfile
@@ -1092,7 +1093,7 @@ jobs:
           rm emptyfile.sig
           echo "Populated gpg-agent cache"
         shell: bash
-      
+
       # Bundle the app packages
 
       # Namespace's User Bundled Cache persists target/ between jobs on the same profile, which can
@@ -1129,7 +1130,7 @@ jobs:
           channel: ${{ steps.get-config.outputs.channel }}
           release-tag: ${{ needs.prepare_release.outputs.release_tag }}
           arch: aarch64
-          
+
       - name: Upload app debugging symbols to Sentry
         if: ${{ needs.prepare_release.outputs.should_publish == 'true' }}
         # Important: we have to do this before the binary is overwritten by the CLI version, which has the same filename
@@ -1181,7 +1182,7 @@ jobs:
         env:
           DEBUG_FILE_OR_FOLDER_PATH: ${{ steps.bundle_cli.outputs.debug_executable_path }}
         shell: bash
-      
+
       # Common uploading steps
 
       - name: Sign Arch Linux packages
