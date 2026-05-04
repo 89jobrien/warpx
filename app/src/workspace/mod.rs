@@ -1477,6 +1477,22 @@ fn add_open_setting_pages_as_editable_binding(app: &mut AppContext) {
         .with_enabled(|| FeatureFlag::SettingsFile.is_enabled() && cfg!(feature = "local_fs"))
         .with_group(bindings::BindingGroup::Settings.as_str())
         .with_context_predicate(id!("Workspace")),
+        EditableBinding::new(
+            "workspace:export_portable_settings",
+            "Export settings to file",
+            WorkspaceAction::ExportPortableSettings,
+        )
+        .with_enabled(|| FeatureFlag::OzSettingsPortable.is_enabled())
+        .with_group(bindings::BindingGroup::Settings.as_str())
+        .with_context_predicate(id!("Workspace")),
+        EditableBinding::new(
+            "workspace:import_portable_settings",
+            "Import settings from file",
+            WorkspaceAction::ImportPortableSettings,
+        )
+        .with_enabled(|| FeatureFlag::OzSettingsPortable.is_enabled())
+        .with_group(bindings::BindingGroup::Settings.as_str())
+        .with_context_predicate(id!("Workspace")),
     ]);
 }
 

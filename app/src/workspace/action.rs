@@ -655,6 +655,12 @@ pub enum WorkspaceAction {
     },
     /// Opens the settings.toml file in a code editor pane.
     OpenSettingsFile,
+    /// Exports all portable user settings to ~/.warp/settings-export.toml.
+    /// Gated on FeatureFlag::OzSettingsPortable.
+    ExportPortableSettings,
+    /// Imports portable settings from ~/.warp/settings-export.toml (or a
+    /// user-chosen path).  Gated on FeatureFlag::OzSettingsPortable.
+    ImportPortableSettings,
     /// Opens a new agent session to fix settings.toml errors using the modify-settings skill.
     FixSettingsWithOz {
         error_description: String,
@@ -933,7 +939,9 @@ impl WorkspaceAction {
             | TabConfigSidecarRemoveConfig { .. }
             | OpenSettingsFile
             | FixSettingsWithOz { .. }
-            | OpenNetworkLogPane => false,
+            | OpenNetworkLogPane
+            | ExportPortableSettings
+            | ImportPortableSettings => false,
             #[cfg(debug_assertions)]
             ShowHoaOnboardingFlow => false,
             #[cfg(target_family = "wasm")]

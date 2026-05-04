@@ -19907,6 +19907,34 @@ impl TypedActionView for Workspace {
                 let path = crate::settings::user_preferences_toml_file_path();
                 self.add_tab_for_code_file(path, None, ctx);
             }
+            ExportPortableSettings => match crate::settings::portable::export_settings(ctx) {
+                Ok(dest) => {
+                    log::info!("Exported settings to {}", dest.display());
+                }
+                Err(e) => {
+                    log::error!("Failed to export settings: {e}");
+                }
+            },
+            ImportPortableSettings => {
+                let path = crate::settings::portable::export_file_path();
+                if path.exists() {
+                    match crate::settings::portable::import_settings(&path, ctx) {
+                        Ok(summary) => {
+                            log::info!(
+                                "Imported settings: {} applied, {} skipped (unknown), {} skipped (excluded)",
+                                summary.applied.len(),
+                                summary.skipped_unknown.len(),
+                                summary.skipped_excluded.len(),
+                            );
+                        }
+                        Err(e) => {
+                            log::error!("Failed to import settings: {e}");
+                        }
+                    }
+                } else {
+                    log::warn!("No settings export file found at {}", path.display());
+                }
+            }
             OpenNetworkLogPane => {
                 self.open_network_log_pane(ctx);
             }

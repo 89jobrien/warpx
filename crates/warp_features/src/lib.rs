@@ -853,8 +853,6 @@ pub enum FeatureFlag {
     OzProjectContext,
 
     /// Hot-reload `~/.warp/.mcp.json` and repo-local `.mcp.json` without restarting the app.
-    /// On config change, diffs the server list and starts new / stops removed / restarts changed
-    /// servers, then shows a toast summarising what changed.
     OzMcpHotReload,
 
     /// Parses build tool output (cargo, go build, tsc, ruff) into a structured
@@ -864,6 +862,13 @@ pub enum FeatureFlag {
     /// Test runner panel: shows cargo nextest / go test results as a collapsible tree
     /// with pass/fail/skip indicators, inline failure output, and per-test re-run.
     OzTestRunner,
+
+    /// Full-text search across all settings keys, descriptions, and values.
+    OzSettingsSearch,
+
+    /// Portable settings export/import — writes `~/.warp/settings-export.toml`
+    /// and reads it back on a new machine. Does NOT include auth or secrets.
+    OzSettingsPortable,
 }
 
 static FLAG_STATES: [AtomicBool; cardinality::<FeatureFlag>()] =
@@ -947,6 +952,8 @@ pub const DOGFOOD_FLAGS: &[FeatureFlag] = &[
     FeatureFlag::OzMcpHotReload,
     FeatureFlag::OzBuildParser,
     FeatureFlag::OzTestRunner,
+    FeatureFlag::OzSettingsSearch,
+    FeatureFlag::OzSettingsPortable,
 ];
 
 /// Features enabled for feature preview build users (e.g.: Friends of Warp).
