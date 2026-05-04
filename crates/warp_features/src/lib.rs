@@ -851,6 +851,10 @@ pub enum FeatureFlag {
     /// Reads `.ctx/context.json` relative to CWD (walk-up), falls back to
     /// `~/.warp-oss/context.json`. Displays Git, AI Context, Handoff, Todos sections.
     OzProjectContext,
+
+    /// Detect keybinding conflicts at load time and surface a warning toast when user config
+    /// binds the same chord to multiple actions.
+    OzKeybindConflicts,
 }
 
 static FLAG_STATES: [AtomicBool; cardinality::<FeatureFlag>()] =
@@ -931,6 +935,7 @@ pub const DOGFOOD_FLAGS: &[FeatureFlag] = &[
     FeatureFlag::OzDoobPanel,
     FeatureFlag::OzSessionHooks,
     FeatureFlag::OzProjectContext,
+    FeatureFlag::OzKeybindConflicts,
 ];
 
 /// Features enabled for feature preview build users (e.g.: Friends of Warp).

@@ -1,5 +1,6 @@
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 #[cfg(not(test))]
 use std::env::var_os;
 use vec1::{vec1, Vec1};
@@ -12,6 +13,46 @@ use anyhow::Context;
 
 /// Environment variable to disable saving keybindings to file (used in integration tests)
 pub const DISABLE_SAVE_ENV_VAR: &str = "WARP_TEST_DISABLE_KEYBINDING_SAVE";
+
+/// A keybinding conflict: the same chord string is bound to more than one action name.
+#[derive(Debug, PartialEq)]
+pub struct KeybindConflict {
+    /// The normalized chord (e.g. `"ctrl-p"`, `"cmd-shift-k"`).
+    pub chord: String,
+    /// The action names that share this chord (at least two).
+    pub actions: Vec<String>,
+}
+
+/// Detect conflicts within a set of user-defined keybindings.
+///
+/// A conflict occurs when two or more action names map to an identical chord string.
+/// Only non-removed bindings are considered.
+///
+/// Returns a `Vec<KeybindConflict>` — one entry per conflicting chord, sorted by chord for
+/// deterministic output.
+pub fn detect_conflicts(bindings: &HashMap<String, String>) -> Vec<KeybindConflict> {
+    // chord → list of action names that share it
+    let mut chord_to_actions: HashMap<String, Vec<String>> = HashMap::new();
+
+    for (action, chord) in bindings {
+        chord_to_actions
+            .entry(chord.clone())
+            .or_default()
+            .push(action.clone());
+    }
+
+    let mut conflicts: Vec<KeybindConflict> = chord_to_actions
+        .into_iter()
+        .filter(|(_, actions)| actions.len() > 1)
+        .map(|(chord, mut actions)| {
+            actions.sort();
+            KeybindConflict { chord, actions }
+        })
+        .collect();
+
+    conflicts.sort_by(|a, b| a.chord.cmp(&b.chord));
+    conflicts
+}
 const REMOVED_KEYBINDING_SERIALIZATION: &str = "none";
 
 #[derive(PartialEq, Debug)]
@@ -33,10 +74,38 @@ impl UserDefinedKeybinding {
 #[cfg(not(test))]
 const KEYBINDINGS_FILE_NAME: &str = "keybindings.yaml";
 
-/// Load all stored custom keybindings into the UI framework so that they are used
+/// Load all stored custom keybindings into the UI framework so that they are used.
+///
+/// Returns any detected keybinding conflicts so the caller can surface them after
+/// windows are available.
 #[cfg(not(test))]
-pub fn load_custom_keybindings(app: &mut AppContext) {
+pub fn load_custom_keybindings(app: &mut AppContext) -> Vec<KeybindConflict> {
     if let Some(keybindings) = read_custom_keybindings() {
+        // Build a chord→action map from non-removed, parseable entries for conflict detection.
+        let mut chord_map: HashMap<String, String> = HashMap::new();
+
+        for (name, trigger) in &keybindings.0 {
+            let keybinding_type = UserDefinedKeybinding::try_from(trigger.clone());
+            if let Ok(UserDefinedKeybinding::Keystrokes(keystrokes)) = keybinding_type {
+                let chord = keystrokes.iter().map(Keystroke::normalized).join(" ");
+                chord_map.insert(name.clone(), chord);
+            }
+        }
+
+        let conflicts = detect_conflicts(&chord_map);
+
+        if !conflicts.is_empty() {
+            let count = conflicts.len();
+            let detail = conflicts
+                .iter()
+                .map(|c| format!("  {} -> {}", c.chord, c.actions.join(", ")))
+                .join("\n");
+            log::warn!(
+                "{count} keybinding conflict{} detected:\n{detail}",
+                if count == 1 { "" } else { "s" }
+            );
+        }
+
         for (name, trigger) in keybindings.0 {
             let keybinding_type = UserDefinedKeybinding::try_from(trigger.clone());
 
@@ -54,6 +123,10 @@ pub fn load_custom_keybindings(app: &mut AppContext) {
                 }
             }
         }
+
+        conflicts
+    } else {
+        Vec::new()
     }
 }
 
@@ -144,7 +217,9 @@ fn read_custom_keybindings() -> Option<CustomKeybindings> {
 //
 // Unit tests are run with #[cfg(test)] enabled, so we can define custom no-op implementations
 #[cfg(test)]
-pub fn load_custom_keybindings(_: &mut AppContext) {}
+pub fn load_custom_keybindings(_: &mut AppContext) -> Vec<KeybindConflict> {
+    Vec::new()
+}
 #[cfg(test)]
 pub fn write_custom_keybinding(_: String, _: UserDefinedKeybinding) {}
 #[cfg(test)]

@@ -2224,7 +2224,7 @@ fn launch(ctx: &mut warpui::AppContext, app_state: Option<AppState>, launch_mode
         timer.mark_interval_end("APP_LAUNCHED");
     });
 
-    keyboard::load_custom_keybindings(ctx);
+    let keybind_conflicts = keyboard::load_custom_keybindings(ctx);
 
     IntervalTimer::handle(ctx).update(ctx, |timer, _ctx| {
         timer.mark_interval_end("KEYBINDINGS_LOADED");
@@ -2255,6 +2255,35 @@ fn launch(ctx: &mut warpui::AppContext, app_state: Option<AppState>, launch_mode
             IntervalTimer::handle(ctx).update(ctx, |timer, _| {
                 timer.mark_interval_end("WINDOWS_CREATED");
             });
+
+            // Surface keybinding conflicts as a persistent toast once windows exist.
+            if features::FeatureFlag::OzKeybindConflicts.is_enabled()
+                && !keybind_conflicts.is_empty()
+            {
+                use crate::settings_view::SettingsSection;
+                use crate::view_components::{DismissibleToast, ToastFlavor, ToastLink};
+                use crate::workspace::{ToastStack, WorkspaceAction};
+                use warpui::SingletonEntity;
+
+                let count = keybind_conflicts.len();
+                let label = format!(
+                    "{count} keybinding conflict{} detected",
+                    if count == 1 { "" } else { "s" }
+                );
+                let link = ToastLink::new("Open keybinding settings".to_string())
+                    .with_onclick_action(WorkspaceAction::ShowSettingsPage(
+                        SettingsSection::Keybindings,
+                    ));
+                let toast = DismissibleToast::new(label, ToastFlavor::Default)
+                    .with_link(link)
+                    .with_object_id("keybind-conflicts".to_string());
+
+                for window_id in ctx.window_ids().collect::<Vec<_>>() {
+                    ToastStack::handle(ctx).update(ctx, |stack, ctx| {
+                        stack.add_persistent_toast(toast.clone(), window_id, ctx);
+                    });
+                }
+            }
 
             // TODO(ben): We should skip this for LaunchMode::Test.
             #[cfg(any(target_os = "macos", target_os = "windows"))]
