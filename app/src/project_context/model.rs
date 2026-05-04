@@ -146,3 +146,7 @@ impl ProjectContextModel {
 impl Entity for ProjectContextModel {
     type Event = ProjectContextModelEvent;
 }
+
+#[cfg(test)]
+#[path = "model_tests.rs"]
+mod tests;
