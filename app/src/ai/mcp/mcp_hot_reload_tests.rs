@@ -10,7 +10,7 @@ use repo_metadata::{
 };
 use std::path::PathBuf;
 use warp_core::features::FeatureFlag;
-use warpui::{App, Entity, ModelHandle, SingletonEntity as _};
+use warpui::{App, Entity, ModelHandle};
 use watcher::HomeDirectoryWatcher;
 
 fn setup_app(app: &mut App) -> ModelHandle<FileBasedMCPManager> {
@@ -66,19 +66,21 @@ fn initial_load_does_not_emit_hot_reload_event() {
     let _flag = FeatureFlag::OzMcpHotReload.override_enabled(true);
     let _file_based = FeatureFlag::FileBasedMcp.override_enabled(true);
 
-    App::test(|app| {
-        let manager = setup_app(app);
-        let events = subscribe_hot_reload_events(app, &manager);
+    App::test((), |mut app| async move {
+        let manager = setup_app(&mut app);
+        let events = subscribe_hot_reload_events(&mut app, &manager);
 
         let root = warp_data_dir();
-        manager.update(app, |me, ctx| {
+        manager.update(&mut app, |me, ctx| {
             me.apply_parsed_servers(root, MCPProvider::Warp, parse_mcp_json(SERVER_A_JSON), ctx);
         });
 
-        assert!(
-            events.read(app).reloaded.is_empty(),
-            "initial load must not emit McpConfigReloaded"
-        );
+        events.read(&app, |e, _| {
+            assert!(
+                e.reloaded.is_empty(),
+                "initial load must not emit McpConfigReloaded"
+            );
+        });
     });
 }
 
@@ -89,14 +91,14 @@ fn reload_emits_event_with_changed_count() {
     let _flag = FeatureFlag::OzMcpHotReload.override_enabled(true);
     let _file_based = FeatureFlag::FileBasedMcp.override_enabled(true);
 
-    App::test(|app| {
-        let manager = setup_app(app);
-        let events = subscribe_hot_reload_events(app, &manager);
+    App::test((), |mut app| async move {
+        let manager = setup_app(&mut app);
+        let events = subscribe_hot_reload_events(&mut app, &manager);
 
         let root = warp_data_dir();
 
         // Initial load — no event expected.
-        manager.update(app, |me, ctx| {
+        manager.update(&mut app, |me, ctx| {
             me.apply_parsed_servers(
                 root.clone(),
                 MCPProvider::Warp,
@@ -106,7 +108,7 @@ fn reload_emits_event_with_changed_count() {
         });
 
         // Reload with a different server — server-a is removed, server-b is added → restarted = 2.
-        manager.update(app, |me, ctx| {
+        manager.update(&mut app, |me, ctx| {
             me.apply_parsed_servers(
                 root.clone(),
                 MCPProvider::Warp,
@@ -115,17 +117,18 @@ fn reload_emits_event_with_changed_count() {
             );
         });
 
-        let reloaded = &events.read(app).reloaded;
-        assert_eq!(
-            reloaded.len(),
-            1,
-            "expected exactly one McpConfigReloaded event"
-        );
-        // 1 removed (server-a) + 1 added (server-b) = 2
-        assert_eq!(
-            reloaded[0], 2,
-            "restarted count should be 2 (1 removed + 1 added)"
-        );
+        events.read(&app, |e, _| {
+            assert_eq!(
+                e.reloaded.len(),
+                1,
+                "expected exactly one McpConfigReloaded event"
+            );
+            // 1 removed (server-a) + 1 added (server-b) = 2
+            assert_eq!(
+                e.reloaded[0], 2,
+                "restarted count should be 2 (1 removed + 1 added)"
+            );
+        });
     });
 }
 
@@ -135,13 +138,13 @@ fn reload_does_not_emit_event_when_flag_disabled() {
     let _flag = FeatureFlag::OzMcpHotReload.override_enabled(false);
     let _file_based = FeatureFlag::FileBasedMcp.override_enabled(true);
 
-    App::test(|app| {
-        let manager = setup_app(app);
-        let events = subscribe_hot_reload_events(app, &manager);
+    App::test((), |mut app| async move {
+        let manager = setup_app(&mut app);
+        let events = subscribe_hot_reload_events(&mut app, &manager);
 
         let root = warp_data_dir();
 
-        manager.update(app, |me, ctx| {
+        manager.update(&mut app, |me, ctx| {
             me.apply_parsed_servers(
                 root.clone(),
                 MCPProvider::Warp,
@@ -151,7 +154,7 @@ fn reload_does_not_emit_event_when_flag_disabled() {
         });
 
         // Reload — flag disabled, so no event.
-        manager.update(app, |me, ctx| {
+        manager.update(&mut app, |me, ctx| {
             me.apply_parsed_servers(
                 root.clone(),
                 MCPProvider::Warp,
@@ -160,10 +163,12 @@ fn reload_does_not_emit_event_when_flag_disabled() {
             );
         });
 
-        assert!(
-            events.read(app).reloaded.is_empty(),
-            "McpConfigReloaded must not emit when OzMcpHotReload flag is off"
-        );
+        events.read(&app, |e, _| {
+            assert!(
+                e.reloaded.is_empty(),
+                "McpConfigReloaded must not emit when OzMcpHotReload flag is off"
+            );
+        });
     });
 }
 
@@ -173,14 +178,14 @@ fn reload_with_no_changes_emits_restarted_zero() {
     let _flag = FeatureFlag::OzMcpHotReload.override_enabled(true);
     let _file_based = FeatureFlag::FileBasedMcp.override_enabled(true);
 
-    App::test(|app| {
-        let manager = setup_app(app);
-        let events = subscribe_hot_reload_events(app, &manager);
+    App::test((), |mut app| async move {
+        let manager = setup_app(&mut app);
+        let events = subscribe_hot_reload_events(&mut app, &manager);
 
         let root = warp_data_dir();
 
         // Initial load.
-        manager.update(app, |me, ctx| {
+        manager.update(&mut app, |me, ctx| {
             me.apply_parsed_servers(
                 root.clone(),
                 MCPProvider::Warp,
@@ -190,7 +195,7 @@ fn reload_with_no_changes_emits_restarted_zero() {
         });
 
         // Reload with identical content — server-a is already tracked, nothing changes.
-        manager.update(app, |me, ctx| {
+        manager.update(&mut app, |me, ctx| {
             me.apply_parsed_servers(
                 root.clone(),
                 MCPProvider::Warp,
@@ -199,12 +204,13 @@ fn reload_with_no_changes_emits_restarted_zero() {
             );
         });
 
-        let reloaded = &events.read(app).reloaded;
-        assert_eq!(reloaded.len(), 1, "expected one McpConfigReloaded event");
-        assert_eq!(
-            reloaded[0], 0,
-            "restarted count should be 0 when no servers changed"
-        );
+        events.read(&app, |e, _| {
+            assert_eq!(e.reloaded.len(), 1, "expected one McpConfigReloaded event");
+            assert_eq!(
+                e.reloaded[0], 0,
+                "restarted count should be 0 when no servers changed"
+            );
+        });
     });
 }
 
@@ -215,14 +221,14 @@ fn reload_with_empty_config_reports_removed_count() {
     let _flag = FeatureFlag::OzMcpHotReload.override_enabled(true);
     let _file_based = FeatureFlag::FileBasedMcp.override_enabled(true);
 
-    App::test(|app| {
-        let manager = setup_app(app);
-        let events = subscribe_hot_reload_events(app, &manager);
+    App::test((), |mut app| async move {
+        let manager = setup_app(&mut app);
+        let events = subscribe_hot_reload_events(&mut app, &manager);
 
         let root: PathBuf = warp_data_dir();
 
         // Initial load with one server.
-        manager.update(app, |me, ctx| {
+        manager.update(&mut app, |me, ctx| {
             me.apply_parsed_servers(
                 root.clone(),
                 MCPProvider::Warp,
@@ -232,7 +238,7 @@ fn reload_with_empty_config_reports_removed_count() {
         });
 
         // Reload with empty config — server-a should be removed.
-        manager.update(app, |me, ctx| {
+        manager.update(&mut app, |me, ctx| {
             me.apply_parsed_servers(
                 root.clone(),
                 MCPProvider::Warp,
@@ -241,11 +247,12 @@ fn reload_with_empty_config_reports_removed_count() {
             );
         });
 
-        let reloaded = &events.read(app).reloaded;
-        assert_eq!(reloaded.len(), 1, "expected one McpConfigReloaded event");
-        assert_eq!(
-            reloaded[0], 1,
-            "restarted count should be 1 (server-a removed)"
-        );
+        events.read(&app, |e, _| {
+            assert_eq!(e.reloaded.len(), 1, "expected one McpConfigReloaded event");
+            assert_eq!(
+                e.reloaded[0], 1,
+                "restarted count should be 1 (server-a removed)"
+            );
+        });
     });
 }
