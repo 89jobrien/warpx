@@ -48,6 +48,7 @@ mod interval_timer;
 // JoeMode: personal ecosystem integration (doob + godmode awareness)
 mod joe;
 pub use joe::hooks as joe_hooks;
+mod git_status;
 mod linear;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 mod login_item;
