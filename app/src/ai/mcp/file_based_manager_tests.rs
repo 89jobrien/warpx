@@ -13,6 +13,7 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 use uuid::Uuid;
 use warp_core::features::FeatureFlag;
+use warpui::SingletonEntity as _;
 use warpui::{App, Entity, ModelHandle};
 use watcher::HomeDirectoryWatcher;
 

@@ -2,6 +2,8 @@
 
 use serde::Deserialize;
 
+use super::failure_store::FailureRecord;
+
 // ---------------------------------------------------------------------------
 // Public types
 // ---------------------------------------------------------------------------
@@ -72,6 +74,39 @@ impl TestRunnerModel {
         let failed = self.suites.iter().map(|s| s.failed()).sum();
         let skipped = self.suites.iter().map(|s| s.skipped()).sum();
         (passed, failed, skipped)
+    }
+
+    // -----------------------------------------------------------------------
+    // Failure persistence helpers
+    // -----------------------------------------------------------------------
+
+    /// Build a `FailureRecord` from the current run result.
+    ///
+    /// Returns `None` if there are no failures (caller should clear any stored record).
+    /// Returns `Some(record)` if there are failures that should be persisted.
+    pub fn failure_record(&self, run_command: &str) -> Option<FailureRecord> {
+        let failed_names: Vec<String> = self
+            .suites
+            .iter()
+            .flat_map(|s| s.tests.iter())
+            .filter(|t| t.status == TestStatus::Fail)
+            .map(|t| t.name.clone())
+            .collect();
+
+        if failed_names.is_empty() {
+            return None;
+        }
+
+        let timestamp_secs = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+
+        Some(FailureRecord {
+            test_names: failed_names,
+            rerun_command: run_command.to_string(),
+            timestamp_secs,
+        })
     }
 
     // -----------------------------------------------------------------------

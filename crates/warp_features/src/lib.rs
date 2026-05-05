@@ -873,6 +873,11 @@ pub enum FeatureFlag {
     /// Detect keybinding conflicts at load time and surface a warning toast when user config
     /// binds the same chord to multiple actions.
     OzKeybindConflicts,
+
+    /// Persist failing test names to `~/.warp/last-failures/<repo-hash>.json` at the end of
+    /// a test run.  On the next session open, surfaces a re-run banner if failures exist for
+    /// the current repo.  Cleared automatically when all tests pass.
+    OzFailurePersistence,
 }
 
 static FLAG_STATES: [AtomicBool; cardinality::<FeatureFlag>()] =
@@ -959,6 +964,7 @@ pub const DOGFOOD_FLAGS: &[FeatureFlag] = &[
     FeatureFlag::OzSettingsSearch,
     FeatureFlag::OzSettingsPortable,
     FeatureFlag::OzKeybindConflicts,
+    FeatureFlag::OzFailurePersistence,
 ];
 
 /// Features enabled for feature preview build users (e.g.: Friends of Warp).

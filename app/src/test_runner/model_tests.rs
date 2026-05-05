@@ -1,6 +1,39 @@
 use super::model::{TestRunnerModel, TestStatus};
 
 // ---------------------------------------------------------------------------
+// failure_record helpers
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_failure_record_with_failures() {
+    let mut model = TestRunnerModel::new();
+    model.parse_nextest_json(
+        r#"{"type":"test-finished","suite-id":"s","test-name":"a","outcome":"failed"}"#,
+    );
+    model.parse_nextest_json(
+        r#"{"type":"test-finished","suite-id":"s","test-name":"b","outcome":"passed"}"#,
+    );
+    let record = model
+        .failure_record("cargo nextest run")
+        .expect("should have failures");
+    assert_eq!(record.test_names, vec!["a"]);
+    assert_eq!(record.rerun_command, "cargo nextest run");
+    assert!(record.timestamp_secs > 0);
+}
+
+#[test]
+fn test_failure_record_all_pass_returns_none() {
+    let mut model = TestRunnerModel::new();
+    model.parse_nextest_json(
+        r#"{"type":"test-finished","suite-id":"s","test-name":"a","outcome":"passed"}"#,
+    );
+    assert!(
+        model.failure_record("cargo nextest run").is_none(),
+        "no failures → None"
+    );
+}
+
+// ---------------------------------------------------------------------------
 // nextest JSON parsing
 // ---------------------------------------------------------------------------
 
