@@ -877,6 +877,11 @@ pub enum FeatureFlag {
     /// Richer git status in the prompt: branch, dirty flag, stash count, ahead/behind.
     /// Each component is individually configurable via `prompt_git_components`.
     OzRichGitPrompt,
+
+    /// Persist failing test names to `~/.warp/last-failures/<repo-hash>.json` at the end of
+    /// a test run.  On the next session open, surfaces a re-run banner if failures exist for
+    /// the current repo.  Cleared automatically when all tests pass.
+    OzFailurePersistence,
 }
 
 static FLAG_STATES: [AtomicBool; cardinality::<FeatureFlag>()] =
@@ -964,6 +969,7 @@ pub const DOGFOOD_FLAGS: &[FeatureFlag] = &[
     FeatureFlag::OzSettingsPortable,
     FeatureFlag::OzKeybindConflicts,
     FeatureFlag::OzRichGitPrompt,
+    FeatureFlag::OzFailurePersistence,
 ];
 
 /// Features enabled for feature preview build users (e.g.: Friends of Warp).

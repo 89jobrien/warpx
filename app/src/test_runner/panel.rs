@@ -8,7 +8,9 @@ use warpui::{
 };
 
 use crate::appearance::Appearance;
+use crate::features::FeatureFlag;
 
+use super::failure_store::{FailureRecord, FailureStore};
 use super::model::{TestRunnerModel, TestStatus};
 
 // ---------------------------------------------------------------------------
@@ -21,13 +23,23 @@ pub struct TestRunnerPanel {
     /// Which test indices are expanded (showing failure output).
     expanded: std::collections::HashSet<(usize, usize)>,
     scroll_state: ClippedScrollStateHandle,
+    /// Failure record loaded from the previous session (if any).
+    last_session_failures: Option<FailureRecord>,
 }
 
 #[derive(Clone, Debug)]
 #[allow(dead_code)]
 pub enum TestRunnerPanelAction {
-    ToggleExpand { suite: usize, test: usize },
-    Rerun { suite: usize, test: usize },
+    ToggleExpand {
+        suite: usize,
+        test: usize,
+    },
+    Rerun {
+        suite: usize,
+        test: usize,
+    },
+    /// Inject the stored re-run command for the last session's failures.
+    RerunLastFailures,
 }
 
 #[derive(Clone, Debug)]
@@ -35,11 +47,22 @@ pub enum TestRunnerPanelEvent {}
 
 impl TestRunnerPanel {
     pub fn new(_ctx: &mut ViewContext<Self>) -> Self {
+        let last_session_failures = if FeatureFlag::OzFailurePersistence.is_enabled() {
+            Self::load_last_failures()
+        } else {
+            None
+        };
         Self {
             model: TestRunnerModel::new(),
             expanded: std::collections::HashSet::new(),
             scroll_state: ClippedScrollStateHandle::default(),
+            last_session_failures,
         }
+    }
+
+    fn load_last_failures() -> Option<FailureRecord> {
+        let cwd = std::env::current_dir().ok()?;
+        FailureStore::new().load(&cwd).ok().flatten()
     }
 
     // -----------------------------------------------------------------------
@@ -210,6 +233,11 @@ impl warpui::TypedActionView for TestRunnerPanel {
                         // to inject; log it here for now.
                         log::debug!("test-runner rerun: {}", t.rerun_command);
                     }
+                }
+            }
+            TestRunnerPanelAction::RerunLastFailures => {
+                if let Some(record) = &self.last_session_failures {
+                    log::debug!("test-runner rerun last failures: {}", record.rerun_command);
                 }
             }
         }
