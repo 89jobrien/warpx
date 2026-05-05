@@ -176,3 +176,99 @@ fn walk_up_for_ctx(start: &std::path::Path) -> Option<PathBuf> {
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// Ctx dir caching — cache hit/miss/invalidation
+// ---------------------------------------------------------------------------
+
+use super::ProjectContextModel;
+
+#[test]
+fn cache_is_empty_on_new_model() {
+    let model = ProjectContextModel::new_bare();
+    assert!(
+        model.resolved_ctx_dir.is_none(),
+        "resolved_ctx_dir should start as None"
+    );
+    assert!(
+        model.cached_cwd.is_none(),
+        "cached_cwd should start as None"
+    );
+}
+
+#[test]
+fn cache_miss_fires_walk_and_stores_result() {
+    let (tmp, leaf) = make_ctx_dir_at_depth(2);
+    let mut model = ProjectContextModel::new_bare();
+
+    // Simulate a "load from cwd" by calling resolve_and_cache with the leaf dir.
+    let resolved = model.resolve_ctx_dir_for(&leaf);
+
+    let expected = tmp.path().join(".ctx").join("context.json");
+    assert_eq!(
+        resolved.as_deref(),
+        Some(expected.as_path()),
+        "walk-up should find context.json"
+    );
+    assert_eq!(
+        model.resolved_ctx_dir.as_deref(),
+        Some(expected.as_path()),
+        "resolved path should be cached"
+    );
+    assert_eq!(
+        model.cached_cwd.as_deref(),
+        Some(leaf.as_path()),
+        "cwd used for resolution should be cached"
+    );
+}
+
+#[test]
+fn cache_hit_returns_stored_path_without_rewalk() {
+    let (tmp, leaf) = make_ctx_dir_at_depth(1);
+    let mut model = ProjectContextModel::new_bare();
+
+    // Prime the cache.
+    let first = model.resolve_ctx_dir_for(&leaf);
+
+    // Now remove the actual file — a real walk would return None.
+    std::fs::remove_file(tmp.path().join(".ctx").join("context.json"))
+        .expect("remove context.json");
+
+    // Second call with same cwd — should return cached value without rewalk.
+    let second = model.resolve_ctx_dir_for(&leaf);
+    assert_eq!(
+        first, second,
+        "cache hit must return stored result even after file removal"
+    );
+}
+
+#[test]
+fn cwd_change_invalidates_cache() {
+    let (tmp1, leaf1) = make_ctx_dir_at_depth(1);
+    let (tmp2, leaf2) = make_ctx_dir_at_depth(0);
+    let mut model = ProjectContextModel::new_bare();
+
+    // Prime cache with leaf1.
+    model.resolve_ctx_dir_for(&leaf1);
+    assert_eq!(
+        model.cached_cwd.as_deref(),
+        Some(leaf1.as_path()),
+        "cached_cwd should point to leaf1"
+    );
+
+    // Different cwd — cache should invalidate and re-walk.
+    let resolved2 = model.resolve_ctx_dir_for(&leaf2);
+    let expected2 = tmp2.path().join(".ctx").join("context.json");
+    assert_eq!(
+        resolved2.as_deref(),
+        Some(expected2.as_path()),
+        "should resolve new cwd"
+    );
+    assert_eq!(
+        model.cached_cwd.as_deref(),
+        Some(leaf2.as_path()),
+        "cached_cwd should update to leaf2"
+    );
+
+    drop(tmp1); // suppress unused-variable warning
+}
