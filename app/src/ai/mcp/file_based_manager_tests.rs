@@ -13,7 +13,7 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 use uuid::Uuid;
 use warp_core::features::FeatureFlag;
-use warpui::{App, Entity, ModelHandle, SingletonEntity as _};
+use warpui::{App, Entity, ModelHandle};
 use watcher::HomeDirectoryWatcher;
 
 // Helper to initialize dependencies and return FileBasedMCPManager handle
@@ -64,7 +64,8 @@ fn subscribe_events(
                     .extend(installation_uuids.iter().copied());
             }
             FileBasedMCPManagerEvent::PurgeCredentials { .. }
-            | FileBasedMCPManagerEvent::CloudEnvMcpScanComplete { .. } => {}
+            | FileBasedMCPManagerEvent::CloudEnvMcpScanComplete { .. }
+            | FileBasedMCPManagerEvent::McpConfigReloaded { .. } => {}
         });
     });
     events
