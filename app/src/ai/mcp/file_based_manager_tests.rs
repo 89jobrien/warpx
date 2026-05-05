@@ -13,7 +13,7 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 use uuid::Uuid;
 use warp_core::features::FeatureFlag;
-use warpui::{App, Entity, ModelHandle};
+use warpui::{App, Entity, ModelHandle, SingletonEntity as _};
 use watcher::HomeDirectoryWatcher;
 
 // Helper to initialize dependencies and return FileBasedMCPManager handle
