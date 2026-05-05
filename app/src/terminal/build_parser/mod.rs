@@ -38,6 +38,9 @@ pub struct BuildDiagnostic {
     pub col: Option<u32>,
     pub severity: Severity,
     pub message: String,
+    /// Number of times this diagnostic appeared (for deduplication).
+    /// Always >= 1. Values > 1 indicate a collapsed repeat.
+    pub count: u32,
 }
 
 /// Which build tool was detected from the command prefix.
@@ -78,6 +81,26 @@ impl BuildOutputParser {
             BuildTool::Tsc => parse_tsc(lines),
             BuildTool::Ruff => parse_ruff(lines),
         }
+    }
+
+    /// Collapse duplicate diagnostics by (file, line, message) key.
+    ///
+    /// The first occurrence is kept; subsequent identical entries increment its
+    /// `count`. Message comparison is whitespace-normalized (trimmed).
+    pub fn deduplicate(diagnostics: Vec<BuildDiagnostic>) -> Vec<BuildDiagnostic> {
+        let mut result: Vec<BuildDiagnostic> = Vec::new();
+        for diag in diagnostics {
+            let norm_msg = diag.message.trim().to_string();
+            let existing = result.iter_mut().find(|d| {
+                d.file == diag.file && d.line == diag.line && d.message.trim() == norm_msg
+            });
+            if let Some(d) = existing {
+                d.count += 1;
+            } else {
+                result.push(diag);
+            }
+        }
+        result
     }
 
     /// Convenience summary: (error_count, warning_count).
@@ -163,6 +186,7 @@ fn parse_cargo<'a>(lines: impl Iterator<Item = &'a str>) -> Vec<BuildDiagnostic>
                     col,
                     severity,
                     message,
+                    count: 1,
                 });
             }
             continue;
@@ -177,6 +201,7 @@ fn parse_cargo<'a>(lines: impl Iterator<Item = &'a str>) -> Vec<BuildDiagnostic>
                     col: None,
                     severity,
                     message,
+                    count: 1,
                 });
             }
         }
@@ -190,6 +215,7 @@ fn parse_cargo<'a>(lines: impl Iterator<Item = &'a str>) -> Vec<BuildDiagnostic>
             col: None,
             severity,
             message,
+            count: 1,
         });
     }
 
@@ -276,6 +302,7 @@ fn parse_go_line(line: &str) -> Option<BuildDiagnostic> {
         col,
         severity,
         message: message.to_string(),
+        count: 1,
     })
 }
 
@@ -353,6 +380,7 @@ fn parse_tsc_line(line: &str) -> Option<BuildDiagnostic> {
         col,
         severity,
         message,
+        count: 1,
     })
 }
 
@@ -399,6 +427,7 @@ fn parse_ruff_line(line: &str) -> Option<BuildDiagnostic> {
         col,
         severity,
         message: rest.to_string(),
+        count: 1,
     })
 }
 

@@ -206,6 +206,93 @@ fn parse_ruff_warning() {
 }
 
 // ---------------------------------------------------------------------------
+// deduplication tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn dedup_identical_diagnostics_collapses_to_one_with_count() {
+    let diag = BuildDiagnostic {
+        file: Some("src/main.rs".into()),
+        line: Some(10),
+        col: Some(5),
+        severity: Severity::Error,
+        message: "borrow of moved value".to_string(),
+        count: 1,
+    };
+    let input = vec![diag.clone(), diag];
+    let result = BuildOutputParser::deduplicate(input);
+    assert_eq!(result.len(), 1);
+    assert_eq!(result[0].count, 2);
+}
+
+#[test]
+fn dedup_different_diagnostics_remain_separate() {
+    let a = BuildDiagnostic {
+        file: Some("src/a.rs".into()),
+        line: Some(1),
+        col: None,
+        severity: Severity::Error,
+        message: "error a".to_string(),
+        count: 1,
+    };
+    let b = BuildDiagnostic {
+        file: Some("src/b.rs".into()),
+        line: Some(1),
+        col: None,
+        severity: Severity::Error,
+        message: "error a".to_string(),
+        count: 1,
+    };
+    let result = BuildOutputParser::deduplicate(vec![a, b]);
+    assert_eq!(result.len(), 2);
+}
+
+#[test]
+fn dedup_normalizes_whitespace_in_message() {
+    let a = BuildDiagnostic {
+        file: Some("src/main.rs".into()),
+        line: Some(5),
+        col: None,
+        severity: Severity::Error,
+        message: "  type mismatch  ".to_string(),
+        count: 1,
+    };
+    let b = BuildDiagnostic {
+        file: Some("src/main.rs".into()),
+        line: Some(5),
+        col: None,
+        severity: Severity::Error,
+        message: "type mismatch".to_string(),
+        count: 1,
+    };
+    let result = BuildOutputParser::deduplicate(vec![a, b]);
+    assert_eq!(result.len(), 1);
+    assert_eq!(result[0].count, 2);
+}
+
+#[test]
+fn dedup_different_line_stays_separate() {
+    let a = BuildDiagnostic {
+        file: Some("src/main.rs".into()),
+        line: Some(5),
+        col: None,
+        severity: Severity::Error,
+        message: "type mismatch".to_string(),
+        count: 1,
+    };
+    let b = BuildDiagnostic {
+        file: Some("src/main.rs".into()),
+        line: Some(6),
+        col: None,
+        severity: Severity::Error,
+        message: "type mismatch".to_string(),
+        count: 1,
+    };
+    let result = BuildOutputParser::deduplicate(vec![a, b]);
+    assert_eq!(result.len(), 2);
+}
+
+// ---------------------------------------------------------------------------
 // counts helper
 // ---------------------------------------------------------------------------
 
@@ -218,6 +305,7 @@ fn counts_summary() {
             col: None,
             severity: Severity::Error,
             message: "e1".into(),
+            count: 1,
         },
         BuildDiagnostic {
             file: None,
@@ -225,6 +313,7 @@ fn counts_summary() {
             col: None,
             severity: Severity::Error,
             message: "e2".into(),
+            count: 1,
         },
         BuildDiagnostic {
             file: None,
@@ -232,6 +321,7 @@ fn counts_summary() {
             col: None,
             severity: Severity::Warning,
             message: "w1".into(),
+            count: 1,
         },
     ];
     let (errors, warnings) = BuildOutputParser::counts(&diags);

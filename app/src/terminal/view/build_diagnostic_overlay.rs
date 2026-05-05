@@ -53,9 +53,20 @@ pub fn severity_color(severity: &Severity) -> &'static str {
     }
 }
 
+/// Returns a repeat-count badge string (e.g. `"x3"`) when the diagnostic
+/// appeared more than once, or `None` when count is 1.
+pub fn repeat_badge(d: &BuildDiagnostic) -> Option<String> {
+    if d.count > 1 {
+        Some(format!("x{}", d.count))
+    } else {
+        None
+    }
+}
+
 /// Formats a single `BuildDiagnostic` as a display string.
 ///
-/// Example: `error  src/main.rs:10:5  borrow of moved value: `x``
+/// When `d.count > 1` a repeat badge is appended, e.g.:
+/// `error  src/main.rs:10:5  borrow of moved value: `x`  x3`
 pub fn format_diagnostic(d: &BuildDiagnostic) -> String {
     let location = match (&d.file, d.line, d.col) {
         (Some(f), Some(ln), Some(col)) => format!("{}:{}:{}", f.display(), ln, col),
@@ -64,10 +75,16 @@ pub fn format_diagnostic(d: &BuildDiagnostic) -> String {
         (None, _, _) => String::new(),
     };
 
-    if location.is_empty() {
+    let base = if location.is_empty() {
         format!("{}  {}", d.severity.label(), d.message)
     } else {
         format!("{}  {}  {}", d.severity.label(), location, d.message)
+    };
+
+    if let Some(badge) = repeat_badge(d) {
+        format!("{base}  {badge}")
+    } else {
+        base
     }
 }
 
@@ -157,6 +174,7 @@ mod tests {
             col: Some(col),
             severity,
             message: msg.to_string(),
+            count: 1,
         }
     }
 
@@ -173,6 +191,27 @@ mod tests {
         assert!(s.contains("error"));
         assert!(s.contains("src/main.rs:10:5"));
         assert!(s.contains("type mismatch"));
+    }
+
+    #[test]
+    fn repeat_badge_none_when_count_one() {
+        let d = make_diag(Severity::Error, "a.rs", 1, 1, "msg");
+        assert!(repeat_badge(&d).is_none());
+    }
+
+    #[test]
+    fn repeat_badge_shows_count_when_gt_one() {
+        let mut d = make_diag(Severity::Error, "a.rs", 1, 1, "msg");
+        d.count = 4;
+        assert_eq!(repeat_badge(&d), Some("x4".to_string()));
+    }
+
+    #[test]
+    fn format_diagnostic_includes_badge_when_count_gt_one() {
+        let mut d = make_diag(Severity::Error, "src/main.rs", 10, 5, "type mismatch");
+        d.count = 3;
+        let s = format_diagnostic(&d);
+        assert!(s.ends_with("x3"), "expected badge at end, got: {s}");
     }
 
     #[test]
