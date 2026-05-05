@@ -65,6 +65,7 @@ pub mod prompt;
 pub mod prompt_render_helper;
 pub mod recorder;
 pub mod remote_tty;
+pub mod rerun_watcher;
 pub mod resizable_data;
 pub mod rich_history;
 pub mod safe_mode_settings;

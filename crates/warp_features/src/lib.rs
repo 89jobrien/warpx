@@ -882,6 +882,10 @@ pub enum FeatureFlag {
     /// a test run.  On the next session open, surfaces a re-run banner if failures exist for
     /// the current repo.  Cleared automatically when all tests pass.
     OzFailurePersistence,
+
+    /// File-watcher auto-rerun: when a file referenced in the last command's build diagnostics
+    /// changes, offer to re-run the last command (or auto-rerun in "Always" mode).
+    OzAutoRerun,
 }
 
 static FLAG_STATES: [AtomicBool; cardinality::<FeatureFlag>()] =
@@ -970,6 +974,7 @@ pub const DOGFOOD_FLAGS: &[FeatureFlag] = &[
     FeatureFlag::OzKeybindConflicts,
     FeatureFlag::OzRichGitPrompt,
     FeatureFlag::OzFailurePersistence,
+    FeatureFlag::OzAutoRerun,
 ];
 
 /// Features enabled for feature preview build users (e.g.: Friends of Warp).
