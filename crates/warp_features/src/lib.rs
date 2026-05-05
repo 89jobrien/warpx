@@ -873,6 +873,10 @@ pub enum FeatureFlag {
     /// Detect keybinding conflicts at load time and surface a warning toast when user config
     /// binds the same chord to multiple actions.
     OzKeybindConflicts,
+
+    /// Richer git status in the prompt: branch, dirty flag, stash count, ahead/behind.
+    /// Each component is individually configurable via `prompt_git_components`.
+    OzRichGitPrompt,
 }
 
 static FLAG_STATES: [AtomicBool; cardinality::<FeatureFlag>()] =
@@ -959,6 +963,7 @@ pub const DOGFOOD_FLAGS: &[FeatureFlag] = &[
     FeatureFlag::OzSettingsSearch,
     FeatureFlag::OzSettingsPortable,
     FeatureFlag::OzKeybindConflicts,
+    FeatureFlag::OzRichGitPrompt,
 ];
 
 /// Features enabled for feature preview build users (e.g.: Friends of Warp).
