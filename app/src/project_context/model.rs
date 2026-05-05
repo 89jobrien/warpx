@@ -77,6 +77,12 @@ pub enum LoadState {
 pub struct ProjectContextModel {
     pub state: ProjectContextState,
     pub load_state: LoadState,
+    /// The `.ctx/context.json` path resolved for `cached_cwd`. `None` means
+    /// no `.ctx/` was found in the walk-up from that cwd.
+    pub resolved_ctx_dir: Option<PathBuf>,
+    /// The cwd that was in effect when `resolved_ctx_dir` was last populated.
+    /// When the cwd changes, this cache entry is invalidated.
+    pub cached_cwd: Option<PathBuf>,
 }
 
 #[derive(Clone, Debug)]
@@ -90,24 +96,60 @@ impl ProjectContextModel {
         Self {
             state: ProjectContextState::default(),
             load_state: LoadState::NotLoaded,
+            resolved_ctx_dir: None,
+            cached_cwd: None,
         }
+    }
+
+    /// Construct a bare model without a `ModelContext` — for unit tests only.
+    #[cfg(test)]
+    pub fn new_bare() -> Self {
+        Self {
+            state: ProjectContextState::default(),
+            load_state: LoadState::NotLoaded,
+            resolved_ctx_dir: None,
+            cached_cwd: None,
+        }
+    }
+
+    /// Walk up from `start` looking for `.ctx/context.json`.
+    /// Returns `Some(path)` if found, `None` otherwise.
+    fn walk_up(start: &std::path::Path) -> Option<PathBuf> {
+        let mut current = start;
+        loop {
+            let candidate = current.join(".ctx").join("context.json");
+            if candidate.is_file() {
+                return Some(candidate);
+            }
+            match current.parent() {
+                Some(parent) if parent != current => current = parent,
+                _ => return None,
+            }
+        }
+    }
+
+    /// Return the cached `.ctx/context.json` path for `cwd`, re-walking only
+    /// on a cache miss or when `cwd` differs from the previously cached cwd.
+    pub fn resolve_ctx_dir_for(&mut self, cwd: &std::path::Path) -> Option<PathBuf> {
+        // Cache hit: same cwd as last resolution.
+        if self.cached_cwd.as_deref() == Some(cwd) {
+            return self.resolved_ctx_dir.clone();
+        }
+
+        // Cache miss or cwd changed — re-walk and store.
+        let resolved = Self::walk_up(cwd);
+        self.resolved_ctx_dir = resolved.clone();
+        self.cached_cwd = Some(cwd.to_path_buf());
+        resolved
     }
 
     /// Walk up from `dir` looking for `.ctx/context.json`.
     /// Falls back to `~/.warp-oss/context.json` if not found.
-    fn resolve_context_path() -> PathBuf {
+    fn resolve_context_path(&mut self) -> PathBuf {
         let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/"));
 
-        let mut current = cwd.as_path();
-        loop {
-            let candidate = current.join(".ctx").join("context.json");
-            if candidate.is_file() {
-                return candidate;
-            }
-            match current.parent() {
-                Some(parent) if parent != current => current = parent,
-                _ => break,
-            }
+        if let Some(path) = self.resolve_ctx_dir_for(&cwd) {
+            return path;
         }
 
         // Fallback: ~/.warp-oss/context.json
@@ -116,7 +158,7 @@ impl ProjectContextModel {
     }
 
     pub fn load(&mut self, ctx: &mut ModelContext<Self>) {
-        let path = Self::resolve_context_path();
+        let path = self.resolve_context_path();
         ctx.spawn(
             async move {
                 let state = tokio::fs::read_to_string(&path)
