@@ -1,5 +1,8 @@
 # Ecosystem Integration Phase 2: Terminal-Native
 
+> **Status: DONE** — Implemented 2026-04-30. Commits: `461bee6`, `03a55a9`,
+> `a90938d` in `dotfiles` and `doob` repos.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use
 > superpowers:subagent-driven-development (recommended) or
 > superpowers:executing-plans to implement this plan task-by-task. Steps
