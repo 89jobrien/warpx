@@ -8,4 +8,5 @@ pub mod context;
 pub mod doob;
 pub mod handoff;
 pub mod hooks;
+pub mod jit_context;
 pub mod joe;

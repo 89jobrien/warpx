@@ -847,6 +847,11 @@ pub enum FeatureFlag {
     /// Fire-and-forget — never blocks the UI thread.
     OzSessionHooks,
 
+    /// JIT context injection — before dispatching an agent prompt, scans cwd for files
+    /// matching patterns extracted from the user's input and prepends matching snippets
+    /// within a token budget. Gated here so it only runs in dogfood/local builds.
+    OzJitContext,
+
     /// Project-local context panel on the right side of the workspace.
     /// Reads `.ctx/context.json` relative to CWD (walk-up), falls back to
     /// `~/.warp-oss/context.json`. Displays Git, AI Context, Handoff, Todos sections.
@@ -965,6 +970,7 @@ pub const DOGFOOD_FLAGS: &[FeatureFlag] = &[
     FeatureFlag::JoeMode,
     FeatureFlag::OzDoobPanel,
     FeatureFlag::OzSessionHooks,
+    FeatureFlag::OzJitContext,
     FeatureFlag::OzProjectContext,
     FeatureFlag::OzMcpHotReload,
     FeatureFlag::OzBuildParser,

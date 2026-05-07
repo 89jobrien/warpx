@@ -1024,6 +1024,15 @@ impl BlocklistAIController {
         is_queued_prompt: bool,
         ctx: &mut ModelContext<Self>,
     ) {
+        // JIT context injection — prepend relevant file snippets to agent prompt.
+        let query = {
+            let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("/"));
+            match crate::joe::jit_context::prepare_jit_context(&query, &cwd) {
+                Some(context) => format!("{context}\n\n{query}"),
+                None => query,
+            }
+        };
+
         let is_viewer = self
             .terminal_model
             .lock()

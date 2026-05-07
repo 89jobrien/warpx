@@ -7,6 +7,7 @@ pub mod claude_projects;
 pub mod doob;
 pub mod handoff;
 pub mod hooks;
+pub mod jit_context;
 pub mod project_context;
 
 // Re-export the pure data types from warpx for use within app.
