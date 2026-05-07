@@ -565,6 +565,7 @@ impl BackingView for TerminalView {
     }
 
     fn close(&mut self, ctx: &mut ViewContext<Self>) {
+        crate::joe::hooks::spawn_handoff();
         ctx.emit(Event::CloseRequested);
     }
 
@@ -672,6 +673,7 @@ impl BackingView for TerminalView {
 
     /// Sets the focus handle for this terminal view, enabling it to track its split pane state.
     fn set_focus_handle(&mut self, focus_handle: PaneFocusHandle, ctx: &mut ViewContext<Self>) {
+        crate::joe::hooks::spawn_handon();
         self.focus_handle = Some(focus_handle.clone());
         // Subscribe to focus state changes to update pane state when focus/split state changes
         ctx.subscribe_to_model(

@@ -1,5 +1,9 @@
 # Wave 1 — Session Lifecycle Hooks (handon / handoff)
 
+> **Status: DONE** — `spawn_handon()` called from `BackingView::set_focus_handle`
+> (tab open) and `spawn_handoff()` from `BackingView::close` (tab close) in
+> `app/src/terminal/view/pane_impl.rs`. Both gated by `FeatureFlag::OzSessionHooks`.
+
 > **For agentic workers:** Run `/godmode:tackle-issues` to dispatch parallel
 > subagents per task group. Use `/godmode:test-driven-development` for each
 > implementation step. Steps use checkbox (`- [ ]`) syntax for tracking.
