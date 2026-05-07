@@ -7,9 +7,10 @@
 
 use std::collections::HashSet;
 use std::path::PathBuf;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use crate::terminal::build_parser::BuildDiagnostic;
+use instant::Instant;
 
 // ---------------------------------------------------------------------------
 // Public types

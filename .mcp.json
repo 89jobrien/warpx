@@ -6,6 +6,16 @@
         "-y",
         "@modelcontextprotocol/server-github"
       ]
+    },
+    "pieces": {
+      "type": "http",
+      "url": "http://localhost:39300/model_context_protocol/2025-03-26/mcp"
+    },
+    "personal-mcp": {
+      "command": "/Users/joe/dev/personal-mcp/target/debug/personal-mcp",
+      "env": {
+        "MCP_CTX_DIR": "/Users/joe/.ctx"
+      }
     }
   }
 }

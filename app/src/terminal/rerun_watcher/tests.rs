@@ -1,8 +1,9 @@
 use std::path::PathBuf;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use super::*;
 use crate::terminal::build_parser::{BuildDiagnostic, Severity};
+use instant::Instant;
 
 // ---------------------------------------------------------------------------
 // Helper builders
@@ -15,6 +16,7 @@ fn diag_with_file(path: &str) -> BuildDiagnostic {
         col: None,
         severity: Severity::Error,
         message: "test error".to_string(),
+        count: 1,
     }
 }
 
@@ -25,6 +27,7 @@ fn diag_without_file() -> BuildDiagnostic {
         col: None,
         severity: Severity::Warning,
         message: "linker warning".to_string(),
+        count: 1,
     }
 }
 

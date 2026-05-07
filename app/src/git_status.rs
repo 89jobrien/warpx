@@ -1,7 +1,9 @@
-/// Rich git status parsing for the prompt integration.
-///
-/// Parses `git status --porcelain=v2 --branch` output into structured data.
-/// Used by the shell indicator when `OzRichGitPrompt` is enabled.
+//! Rich git status parsing for the prompt integration.
+//!
+//! Parses `git status --porcelain=v2 --branch` output into structured data.
+//! Used by the shell indicator when `OzRichGitPrompt` is enabled.
+
+#![allow(dead_code)]
 
 /// A component of the git status shown in the prompt.
 #[derive(
@@ -191,7 +193,7 @@ mod tests {
     }
 
     #[test]
-    fn render_stash_shown_as_sN() {
+    fn render_stash_shown_as_s_n() {
         let info = GitStatusInfo {
             stash_count: 3,
             ..Default::default()
