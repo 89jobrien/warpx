@@ -1,5 +1,8 @@
 # Wave 1 — Bundled Skills for godmode and hj
 
+> **Status: DONE** — All 9 skill directories present and populated under
+> `resources/bundled/skills/`. Verified 2026-05-06.
+
 > **For agentic workers:** Run `/godmode:tackle-issues` to dispatch parallel
 > subagents per task group. Use `/godmode:test-driven-development` for each
 > implementation step. Steps use checkbox (`- [ ]`) syntax for tracking.
