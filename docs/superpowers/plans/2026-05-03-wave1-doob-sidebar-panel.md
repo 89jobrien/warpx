@@ -1,5 +1,9 @@
 # Wave 1 — Doob Sidebar Panel in warpx
 
+> **Status: DONE** — Implemented 2026-05-03. Commit `1d9f53e`. All tasks
+> complete: `OzDoobPanel` flag, `DoobModel`, `DoobPanel`, wired into
+> `left_panel.rs`.
+
 > **For agentic workers:** Run `/godmode:tackle-issues` to dispatch parallel
 > subagents per task group. Use `/godmode:test-driven-development` for each
 > implementation step. Steps use checkbox (`- [ ]`) syntax for tracking.
