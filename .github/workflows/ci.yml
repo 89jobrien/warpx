@@ -178,6 +178,11 @@ jobs:
             runner: ubuntu-latest
             null_device: "/dev/null"
             clippy_excludes: "--exclude warp_completer"
+          - os: "macos"
+            name: "macOS"
+            runner: [self-hosted, macos]
+            null_device: "/dev/null"
+            clippy_excludes: "--exclude warp_completer"
     runs-on: ${{ matrix.runner }}
     needs: params
     steps:
