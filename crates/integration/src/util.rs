@@ -172,6 +172,7 @@ pub fn write_histfiles_for_test<P>(
             ShellType::Bash => path_ref.join(".bash_history"),
             ShellType::Zsh => path_ref.join(".zsh_history"),
             ShellType::Fish => path_ref.join("fish_history"),
+            ShellType::Nu => path_ref.join("history.txt"),
             ShellType::PowerShell => path_ref.join("ConsoleHost_history.txt"),
         };
 
@@ -193,6 +194,13 @@ pub fn write_histfiles_for_test<P>(
                         chrono::Local::now().timestamp()
                     )
                     .as_str();
+                }
+                contents
+            }
+            ShellType::Nu => {
+                let mut contents = "".to_owned();
+                for command in commands.clone() {
+                    contents += format!("+{command}\n").as_str();
                 }
                 contents
             }

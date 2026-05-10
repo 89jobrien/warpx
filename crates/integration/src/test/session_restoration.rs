@@ -162,6 +162,18 @@ pub fn test_restored_blocks_on_different_hosts() -> Builder {
                                         "history items for fish"
                                     )
                                 }
+                                ShellType::Nu => {
+                                    assert_eq!(
+                                        hist_list.len(),
+                                        1,
+                                        "nushell has no restored commands"
+                                    );
+                                    async_assert_eq!(
+                                        hist_list[0].command,
+                                        "mkdir secrets",
+                                        "history items for nushell"
+                                    )
+                                }
                                 ShellType::PowerShell => {
                                     assert_eq!(hist_list.len(), 2);
                                     assert_eq!(

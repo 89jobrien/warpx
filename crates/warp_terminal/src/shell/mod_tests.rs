@@ -122,6 +122,21 @@ fn test_from_name() {
     );
     assert_eq!(None, ShellType::from_name("psh"));
 }
+#[test]
+fn test_from_name_nushell() {
+    assert_eq!(Some(ShellType::Nu), ShellType::from_name("nu"));
+    assert_eq!(Some(ShellType::Nu), ShellType::from_name("-nu"));
+    assert_eq!(
+        Some(ShellType::Nu),
+        ShellType::from_name("/opt/homebrew/bin/nu")
+    );
+    assert_eq!(Some(ShellType::Nu), ShellType::from_name("nu.exe"));
+    assert_eq!(
+        Some(ShellType::Nu),
+        ShellType::from_name("C:\\Program Files\\nu\\bin\\nu.exe")
+    );
+    assert_eq!(None, ShellType::from_name("nush"));
+}
 
 #[test]
 fn test_from_markdown_language_spec() {
@@ -154,6 +169,14 @@ fn test_from_markdown_language_spec() {
         Some(ShellType::PowerShell),
         ShellType::from_markdown_language_spec("pwsh")
     );
+    assert_eq!(
+        Some(ShellType::Nu),
+        ShellType::from_markdown_language_spec("nu")
+    );
+    assert_eq!(
+        Some(ShellType::Nu),
+        ShellType::from_markdown_language_spec("nushell")
+    );
 
     // Non-shell languages and invalid inputs
     assert_eq!(None, ShellType::from_markdown_language_spec("python"));
@@ -162,6 +185,72 @@ fn test_from_markdown_language_spec() {
     // Paths and executable names should not match (use from_name for those)
     assert_eq!(None, ShellType::from_markdown_language_spec("/bin/bash"));
     assert_eq!(None, ShellType::from_markdown_language_spec("-bash"));
+}
+#[test]
+fn test_nushell_metadata() {
+    assert_eq!(ShellType::Nu.name(), "nu");
+    assert_eq!(
+        ShellType::Nu.history_files(),
+        vec![
+            "~/Library/Application Support/nushell/history.txt".to_string(),
+            "~/.local/share/nushell/history.txt".to_string(),
+            "~/.local/share/nushell/history.sqlite3".to_string(),
+        ]
+    );
+    assert_eq!(
+        ShellType::Nu.rc_file_paths(TargetOS::MacOS),
+        vec![
+            PathBuf::from("~/.config/nushell/config.nu"),
+            PathBuf::from("~/.config/nushell/env.nu"),
+        ]
+    );
+    assert_eq!(ShellType::Nu.or_combiner(), " ; ");
+    assert_eq!(ShellType::Nu.execute_command_bytes(), &b"\n"[..]);
+    assert_eq!(
+        ShellType::Nu.kill_buffer_bytes(),
+        &[escape_sequences::C0::DLE]
+    );
+    assert!(!ShellType::Nu.is_fully_supported_remotely());
+    assert!(
+        !Shell::new(ShellType::Nu, None, None, Default::default(), None)
+            .supports_native_shell_completions()
+    );
+    assert!(!Shell::new(ShellType::Nu, None, None, Default::default(), None).supports_autocd());
+}
+
+#[cfg(unix)]
+#[test]
+fn test_nushell_and_combiner() {
+    assert_eq!(ShellType::Nu.and_combiner(), " && ");
+}
+
+#[test]
+fn test_parse_history_nushell_text_history() {
+    let history_lines = "\n+ls\n+git status\n+\n+nu -c 'version'\n+";
+    assert_eq!(
+        ShellType::Nu.parse_history(history_lines.as_bytes()),
+        vec![
+            "ls".to_string(),
+            "git status".to_string(),
+            "nu -c 'version'".to_string(),
+        ]
+    );
+}
+
+#[test]
+fn test_nushell_executables_from_shell_command_output() {
+    let output = Ok(CommandOutput {
+        stdout: b"cargo\ngit\nnu\n".to_vec(),
+        stderr: Vec::new(),
+        status: CommandExitStatus::Success,
+        exit_code: None,
+    });
+    let executables = ShellType::Nu.executables_from_shell_command_output(output, false);
+    let executable_names = executables
+        .iter()
+        .map(|name| name.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(executable_names, vec!["cargo", "git", "nu"]);
 }
 
 #[test]

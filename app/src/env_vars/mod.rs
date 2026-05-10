@@ -82,16 +82,22 @@ impl EnvVar {
     pub fn get_initialization_string(&self, shell_type: ShellType) -> String {
         let shell_family = ShellFamily::from(shell_type);
         let name = shell_family.escape(&self.name);
-        let value = get_init_command_for_env_var(&self.value, shell_family);
 
         match shell_type {
             ShellType::Bash | ShellType::Zsh => {
+                let value = get_init_command_for_env_var(&self.value, shell_family);
                 format!("export {name}={value};")
             }
             ShellType::Fish => {
+                let value = get_init_command_for_env_var(&self.value, shell_family);
                 format!("set -x {name} {value};")
             }
+            ShellType::Nu => {
+                let value = get_init_command_for_nu_env_var(&self.value);
+                format!("$env.{name} = {value};")
+            }
             ShellType::PowerShell => {
+                let value = get_init_command_for_env_var(&self.value, shell_family);
                 format!("$env:{name} = {value};")
             }
         }
@@ -107,6 +113,20 @@ fn get_init_command_for_env_var(value: &EnvVarValue, shell_family: ShellFamily) 
         EnvVarValue::Command(cmd) => format!("$({})", cmd.command),
         EnvVarValue::Secret(secret) => {
             format!("$({})", secret.get_secret_extraction_command(shell_family))
+        }
+    }
+}
+
+fn get_init_command_for_nu_env_var(value: &EnvVarValue) -> String {
+    match value {
+        EnvVarValue::Constant(val) => ShellFamily::Posix.escape(val).into_owned(),
+        EnvVarValue::Command(cmd) => {
+            let command = &cmd.command;
+            format!("({command})")
+        }
+        EnvVarValue::Secret(secret) => {
+            let command = secret.get_secret_extraction_command(ShellFamily::Posix);
+            format!("({command})")
         }
     }
 }
@@ -255,6 +275,7 @@ pub fn serialize_variables_for_shell<'s, I: IntoIterator<Item = (&'s str, &'s En
         ShellType::Bash | ShellType::Zsh => {
             serialize_variables_internal(pairs, "", "=", "", " ", shell_type.into())
         }
+        ShellType::Nu => serialize_nu_variables_internal(pairs, " "),
         ShellType::PowerShell => {
             serialize_variables_internal(pairs, "$env:", " = ", ";", " ", shell_type.into())
         }
@@ -288,6 +309,21 @@ fn serialize_variables_internal<'s, I: IntoIterator<Item = (&'s str, &'s EnvVarV
                 get_init_command_for_env_var(value, shell_family),
                 postfix
             )
+        })
+        .collect_vec()
+        .join(delimeter)
+}
+
+fn serialize_nu_variables_internal<'s, I: IntoIterator<Item = (&'s str, &'s EnvVarValue)>>(
+    pairs: I,
+    delimeter: &str,
+) -> String {
+    pairs
+        .into_iter()
+        .map(|(name, value)| {
+            let name = ShellFamily::Posix.escape(name);
+            let value = get_init_command_for_nu_env_var(value);
+            format!("$env.{name} = {value};")
         })
         .collect_vec()
         .join(delimeter)

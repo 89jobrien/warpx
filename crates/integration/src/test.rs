@@ -456,6 +456,7 @@ pub fn test_completions_with_autocd() -> Builder {
                 ShellType::Bash => {
                     version_compare::compare_to(version, "4", Cmp::Ge).unwrap_or(false)
                 }
+                ShellType::Nu => false,
                 // TODO(PLAT-751)
                 ShellType::PowerShell => false,
             }

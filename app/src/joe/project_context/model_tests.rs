@@ -100,7 +100,7 @@ fn deserialize_unknown_fields_are_ignored() {
 
 #[test]
 fn handoff_item_priorities_roundtrip() {
-    let items = vec![
+    let items = [
         HandoffItem {
             summary: "urgent".into(),
             priority: "P0".into(),

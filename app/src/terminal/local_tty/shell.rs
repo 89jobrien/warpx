@@ -651,6 +651,7 @@ fn arguments_for_session_spawning_command(
             "-Command".to_owned().into(),
             init_shell_script_for_shell(ShellType::PowerShell, &crate::ASSETS).into(),
         ],
+        ShellType::Nu => todo!("Nushell session spawning is not implemented yet"),
     }
 }
 
@@ -676,7 +677,9 @@ fn wsl_arguments_for_session_spawning_command(
             ));
             args
         }
-        _ => todo!("We don't yet support bootstrapping {shell_type:?} on WSL"),
+        ShellType::Nu | ShellType::PowerShell => {
+            todo!("We don't yet support bootstrapping {shell_type:?} on WSL")
+        }
     }
 }
 
@@ -697,6 +700,7 @@ fn msys2_arguments_for_session_spawning_command(shell_type: ShellType) -> Vec<Os
                 "--no-config".to_string().into(),
             ]
         }
+        ShellType::Nu => panic!("MSYS2 not supported for Nushell"),
         ShellType::PowerShell => panic!("MSYS2 not supported for PowerShell"),
     }
 }
