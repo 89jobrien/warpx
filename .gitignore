@@ -65,6 +65,7 @@ __pycache__/
 # handoff-begin
 .ctx/*
 !.ctx/HANDOFF.*.yaml
+.ctx/HANDOFF.warpx.warpx.yaml
 .ctx/HANDOFF.*.state.yaml
 !.ctx/handoff.*.config.toml.example
 .ctx/HANDOFF.*.*.state.yaml

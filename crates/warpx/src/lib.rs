@@ -10,3 +10,10 @@ pub mod handoff;
 pub mod hooks;
 pub mod jit_context;
 pub mod joe;
+
+#[cfg(test)]
+pub(crate) mod test_env {
+    use std::sync::Mutex;
+
+    pub static ENV_LOCK: Mutex<()> = Mutex::new(());
+}

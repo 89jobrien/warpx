@@ -186,7 +186,7 @@ fn walk_dir(
         if name.starts_with('.') && path.is_dir() {
             continue;
         }
-        if ALWAYS_EXCLUDE.iter().any(|ex| *ex == name) {
+        if ALWAYS_EXCLUDE.contains(&name) {
             continue;
         }
         // Skip user-configured exclusions (simple substring match on path component)
@@ -222,11 +222,10 @@ fn file_matches(path: &Path, patterns: &[String], _config: &JitConfig) -> bool {
             }
         }
         // Glob-style: if pattern ends with extension, check file extension
-        if p.starts_with("*.") {
-            let ext = &p[2..];
-            if path.extension().and_then(|e| e.to_str()) == Some(ext) {
-                return true;
-            }
+        if let Some(ext) = p.strip_prefix("*.")
+            && path.extension().and_then(|e| e.to_str()) == Some(ext)
+        {
+            return true;
         }
     }
     false
