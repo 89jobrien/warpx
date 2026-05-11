@@ -14,6 +14,90 @@ fn make_available_shells(shells: Vec<AvailableShell>) -> AvailableShells {
 }
 
 #[test]
+fn test_load_known_shells_finds_nushell_on_path() {
+    FeatureFlag::ShellSelector.set_enabled(true);
+    VirtualFS::test(
+        "test_load_known_shells_finds_nushell_on_path",
+        |dirs, mut sandbox| {
+            let bin = dirs.tests().join("bin");
+            let nu = bin.join("nu");
+
+            sandbox.mkdir("bin");
+            sandbox.with_files(vec![Stub::MockExecutable("bin/nu")]);
+
+            let shells = AvailableShells::load_known_shells(&[bin], None);
+
+            assert_eq!(
+                shells,
+                vec![AvailableShell {
+                    id: Some(format!("local:{}", nu.display())),
+                    state: Arc::new(Config::KnownLocal(LocalConfig {
+                        command: "nu".to_string(),
+                        executable_path: nu,
+                        shell_type: ShellType::Nu,
+                    }))
+                }]
+            );
+        },
+    );
+}
+
+#[test]
+fn test_load_known_shells_finds_nushell_from_fallback_shells() {
+    FeatureFlag::ShellSelector.set_enabled(true);
+    VirtualFS::test(
+        "test_load_known_shells_finds_nushell_from_fallback_shells",
+        |dirs, mut sandbox| {
+            let bin = dirs.tests().join("bin");
+            let nu = bin.join("nu");
+            let fallback_shells_path = dirs.tests().join("etc").join("shells");
+
+            sandbox.mkdir("etc");
+            sandbox.mkdir("bin");
+            sandbox.with_files(vec![
+                Stub::FileWithContent("etc/shells", format!("{}\n", nu.display()).as_str()),
+                Stub::MockExecutable("bin/nu"),
+            ]);
+
+            let shells =
+                AvailableShells::load_known_shells(&[], Some(fallback_shells_path.as_path()));
+
+            assert_eq!(
+                shells,
+                vec![AvailableShell {
+                    id: Some(format!("local:{}", nu.display())),
+                    state: Arc::new(Config::KnownLocal(LocalConfig {
+                        command: "nu".to_string(),
+                        executable_path: nu,
+                        shell_type: ShellType::Nu,
+                    }))
+                }]
+            );
+        },
+    );
+}
+
+#[test]
+fn test_nushell_display_and_launch_capability() {
+    let nu = AvailableShell::new_local_executable(
+        "nu".to_string(),
+        PathBuf::from("/Users/test/.local/share/mise/shims/nu"),
+        ShellType::Nu,
+    );
+    assert_eq!(nu.short_name(), "Nushell");
+    assert_eq!(nu.telemetry_value(), "nu");
+    assert!(nu.supports_session_spawning());
+
+    let zsh = AvailableShell::new_local_executable(
+        "zsh".to_string(),
+        PathBuf::from("/bin/zsh"),
+        ShellType::Zsh,
+    );
+    assert_eq!(zsh.short_name(), "Zsh");
+    assert!(zsh.supports_session_spawning());
+}
+
+#[test]
 fn test_load_known_shells_with_empty_path_var() {
     FeatureFlag::ShellSelector.set_enabled(true);
 
@@ -53,7 +137,7 @@ fn test_load_known_shells_with_empty_path_var() {
 
             assert_eq!(fallback_shells.len(), 2);
             // note about this test; current impl is that we add shells in the following order:
-            //   zsh, bash, fish, pwsh, powershell
+            //   zsh, bash, fish, nu, pwsh
             // so it is important to assert that even though `/bin/bash` is located before `/bin/zsh`
             // in the fallback file, we still list `zsh` first.
             assert_eq!(
@@ -129,6 +213,7 @@ fn test_dedupe_symlinks_when_discovering_paths() {
 fn test_find_by_command_name_matches_known_shell() {
     let zsh_path = PathBuf::from("/bin/zsh");
     let pwsh_path = PathBuf::from("/opt/homebrew/bin/pwsh");
+    let nu_path = PathBuf::from("/Users/test/.local/share/mise/shims/nu");
     let shells = make_available_shells(vec![
         AvailableShell::new_local_executable("zsh".to_string(), zsh_path.clone(), ShellType::Zsh),
         AvailableShell::new_local_executable(
@@ -136,6 +221,7 @@ fn test_find_by_command_name_matches_known_shell() {
             pwsh_path.clone(),
             ShellType::PowerShell,
         ),
+        AvailableShell::new_local_executable("nu".to_string(), nu_path.clone(), ShellType::Nu),
     ]);
 
     let matched = shells
@@ -153,6 +239,14 @@ fn test_find_by_command_name_matches_known_shell() {
         matched.id(),
         Some(format!("local:{}", zsh_path.display()).as_str()),
     );
+
+    let matched = shells
+        .find_by_command_name("nu")
+        .expect("should find nu by command name");
+    assert_eq!(
+        matched.id(),
+        Some(format!("local:{}", nu_path.display()).as_str()),
+    );
 }
 
 #[test]
@@ -164,6 +258,7 @@ fn test_find_by_command_name_returns_none_for_unknown_name() {
     )]);
 
     assert!(shells.find_by_command_name("pwsh").is_none());
+    assert!(shells.find_by_command_name("nu").is_none());
     assert!(shells.find_by_command_name("").is_none());
 }
 
@@ -257,9 +352,12 @@ fn test_command_name_matches_windows() {
     assert!(command_name_matches("pwsh", "pwsh.exe", true));
     assert!(command_name_matches("pwsh.exe", "PWSH.EXE", true));
     assert!(command_name_matches("powershell.exe", "PowerShell", true));
+    assert!(command_name_matches("nu.exe", "nu", true));
+    assert!(command_name_matches("nu", "NU.EXE", true));
 
     // Distinct shells should not collide.
     assert!(!command_name_matches("pwsh", "powershell", true));
     assert!(!command_name_matches("pwsh.exe", "powershell.exe", true));
     assert!(!command_name_matches("bash.exe", "zsh", true));
+    assert!(!command_name_matches("nu.exe", "nush", true));
 }

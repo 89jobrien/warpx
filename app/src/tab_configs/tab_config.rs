@@ -127,7 +127,7 @@ pub struct TabConfigPaneNode {
     pub is_focused: Option<bool>,
     pub directory: Option<String>,
     pub commands: Option<Vec<String>>,
-    /// Optional shell to use for this pane (e.g. `"pwsh"`, `"zsh"`, `"bash"`, `"fish"`).
+    /// Optional shell to use for this pane (e.g. `"pwsh"`, `"zsh"`, `"bash"`, `"fish"`, `"nu"`).
     /// Only applies to `terminal` and `agent` pane types.
     /// If omitted or the shell is not found, the user's default shell is used.
     pub shell: Option<String>,

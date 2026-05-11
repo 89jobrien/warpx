@@ -12,6 +12,7 @@ use warp_util::path::{canonicalize_git_bash_path, is_msys2_path, warp_shell_path
 
 use crate::{
     terminal::{
+        available_shells::supports_session_spawning_for_shell_type,
         available_shells::AvailableShell,
         bootstrap::init_shell_script_for_shell,
         local_tty::docker_sandbox::DockerSandboxShellStarter,
@@ -49,7 +50,7 @@ pub fn extra_path_entries() -> impl Iterator<Item = PathBuf> {
 }
 
 /// Returns `true` if the given `path_or_command` is a valid, executable command or path to a
-/// executable binary for one of Warp's supported shell types (bash, fish, zsh).
+/// executable binary for one of Warp's known shell types.
 pub fn is_valid_path_or_command_for_supported_shell(path_or_command: &str) -> bool {
     supported_shell_path_and_type(path_or_command).is_some()
 }
@@ -83,6 +84,13 @@ impl ShellStarter {
                     executable_path,
                     shell_type,
                 } => {
+                    if !supports_session_spawning_for_shell_type(shell_type) {
+                        log::warn!(
+                            "Not launching {shell_type:?}; session spawning is not implemented yet"
+                        );
+                        return Self::compute_fallback_shell()
+                            .map(|fallback_shell| fallback_shell.into());
+                    }
                     if cfg!(windows) {
                         let executable_path = canonicalize_git_bash_path(executable_path.clone());
                         if is_msys2_path(&executable_path) {
@@ -121,6 +129,13 @@ impl ShellStarter {
                     executable_path,
                     shell_type,
                 } => {
+                    if !supports_session_spawning_for_shell_type(shell_type) {
+                        log::warn!(
+                            "Not launching {shell_type:?}; session spawning is not implemented yet"
+                        );
+                        return Self::compute_fallback_shell()
+                            .map(|fallback_shell| fallback_shell.into());
+                    }
                     return Some(
                         ShellStarterSource::Override(ShellStarter::MSYS2(DirectShellStarter {
                             args: msys2_arguments_for_session_spawning_command(shell_type),
@@ -128,7 +143,7 @@ impl ShellStarter {
                             shell_type,
                         }))
                         .into(),
-                    )
+                    );
                 }
                 ShellLaunchData::DockerSandbox {
                     sbx_path,
@@ -161,6 +176,12 @@ impl ShellStarter {
                 .unwrap_or_else(|| {
                     panic!("Cannot spawn shell; $WARP_SHELL_PATH is invalid: {warp_shell_env_var}")
                 });
+            if !supports_session_spawning_for_shell_type(shell_type) {
+                log::warn!(
+                    "Ignoring $WARP_SHELL_PATH={warp_shell_env_var}; session spawning is not implemented for {shell_type:?}"
+                );
+                return Self::compute_fallback_shell().map(|fallback_shell| fallback_shell.into());
+            }
             return Some(
                 ShellStarterSource::Environment(DirectShellStarter {
                     args: arguments_for_session_spawning_command(
@@ -189,14 +210,19 @@ impl ShellStarter {
                 if let Some((resolved_pw_shell_path, shell_type)) =
                     supported_shell_path_and_type(&pw_shell_path)
                 {
-                    return Some(ShellStarterSource::UserDefault(DirectShellStarter {
-                        args: arguments_for_session_spawning_command(
-                            resolved_pw_shell_path.as_path().to_string_lossy().as_ref(),
+                    if supports_session_spawning_for_shell_type(shell_type) {
+                        return Some(ShellStarterSource::UserDefault(DirectShellStarter {
+                            args: arguments_for_session_spawning_command(
+                                resolved_pw_shell_path.as_path().to_string_lossy().as_ref(),
+                                shell_type,
+                            ),
+                            shell_path: resolved_pw_shell_path,
                             shell_type,
-                        ),
-                        shell_path: resolved_pw_shell_path,
-                        shell_type,
-                    }));
+                        }));
+                    }
+                    log::warn!(
+                        "Not launching default shell {pw_shell_path}; session spawning is not implemented for {shell_type:?}"
+                    );
                 }
                 let unsupported_shell = Some(pw_shell_path);
 
@@ -651,7 +677,18 @@ fn arguments_for_session_spawning_command(
             "-Command".to_owned().into(),
             init_shell_script_for_shell(ShellType::PowerShell, &crate::ASSETS).into(),
         ],
-        ShellType::Nu => todo!("Nushell session spawning is not implemented yet"),
+        ShellType::Nu => {
+            // Launch via bash -c, similar to Fish. Nu's `-e` flag runs commands
+            // then enters interactive mode (unlike `-c` which exits after).
+            vec![
+                "-c".to_owned().into(),
+                format!(
+                    r#"exec '{resolved_shell_path}' --login -e '{}'"#,
+                    init_shell_script_for_shell(ShellType::Nu, &crate::ASSETS)
+                )
+                .into(),
+            ]
+        }
     }
 }
 

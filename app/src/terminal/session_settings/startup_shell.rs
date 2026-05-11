@@ -2,19 +2,20 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 /// A user setting for the shell to start new terminal sessions with.
 ///
-/// Users choose between their login shell, the default versions of zsh/bash/fish
+/// Users choose between their login shell, the default versions of zsh/bash/fish/nu
 /// (if installed, the first matching executable on their `$PATH`), and a
 /// custom path or command.
 #[derive(Debug, Clone, Default, PartialEq, Eq, schemars::JsonSchema)]
 #[schemars(
     with = "Option<String>",
-    description = "Shell to start terminal sessions with. Use null for the system default, or one of \"bash\", \"zsh\", \"fish\", \"pwsh\", or a custom shell command/path."
+    description = "Shell to start terminal sessions with. Use null for the system default, or one of \"bash\", \"zsh\", \"fish\", \"nu\", \"pwsh\", or a custom shell command/path."
 )]
 pub enum StartupShell {
     #[default]
     Default,
     Bash,
     Fish,
+    Nu,
     Zsh,
     PowerShell,
     Custom(String),
@@ -27,6 +28,7 @@ impl StartupShell {
             StartupShell::Default => None,
             StartupShell::Bash => Some("bash"),
             StartupShell::Fish => Some("fish"),
+            StartupShell::Nu => Some("nu"),
             StartupShell::Zsh => Some("zsh"),
             StartupShell::PowerShell => Some("pwsh"),
             StartupShell::Custom(shell) => Some(shell),
@@ -62,8 +64,40 @@ impl From<Option<String>> for StartupShell {
             Some(shell) if shell == "bash" => StartupShell::Bash,
             Some(shell) if shell == "zsh" => StartupShell::Zsh,
             Some(shell) if shell == "fish" => StartupShell::Fish,
+            Some(shell) if shell == "nu" => StartupShell::Nu,
             Some(shell) if shell == "pwsh" => StartupShell::PowerShell,
             Some(shell) => StartupShell::Custom(shell),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_nushell_shell_command() {
+        assert_eq!(StartupShell::Nu.shell_command(), Some("nu"));
+    }
+
+    #[test]
+    fn test_nushell_serialization() {
+        assert_eq!(serde_json::to_string(&StartupShell::Nu).unwrap(), "\"nu\"");
+    }
+
+    #[test]
+    fn test_nushell_deserialization() {
+        assert_eq!(
+            serde_json::from_str::<StartupShell>("\"nu\"").unwrap(),
+            StartupShell::Nu
+        );
+    }
+
+    #[test]
+    fn test_unknown_shell_deserializes_as_custom() {
+        assert_eq!(
+            serde_json::from_str::<StartupShell>("\"elvish\"").unwrap(),
+            StartupShell::Custom("elvish".to_string())
+        );
     }
 }

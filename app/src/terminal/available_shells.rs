@@ -28,6 +28,16 @@ struct LocalConfig {
     shell_type: ShellType,
 }
 
+pub fn supports_session_spawning_for_shell_type(shell_type: ShellType) -> bool {
+    match shell_type {
+        ShellType::Bash
+        | ShellType::Zsh
+        | ShellType::Fish
+        | ShellType::Nu
+        | ShellType::PowerShell => true,
+    }
+}
+
 impl TryFrom<StartupShell> for LocalConfig {
     type Error = ();
 
@@ -120,6 +130,7 @@ impl AvailableShell {
                 "bash" => Cow::from("Bash"),
                 "zsh" => Cow::from("Zsh"),
                 "fish" => Cow::from("Fish"),
+                "nu" | "nu.exe" => Cow::from("Nushell"),
                 "pwsh" | "pwsh.exe" => Cow::from("PowerShell"),
                 "powershell" | "powershell.exe" => Cow::from("Windows PowerShell"),
                 _ => Cow::from(command),
@@ -168,6 +179,17 @@ impl AvailableShell {
 
     pub fn is_wsl(&self) -> bool {
         matches!(self.state.as_ref(), Config::Wsl { .. })
+    }
+
+    pub fn supports_session_spawning(&self) -> bool {
+        match self.state.as_ref() {
+            Config::SystemDefault | Config::Wsl { .. } | Config::DockerSandbox { .. } => true,
+            Config::KnownLocal(LocalConfig { shell_type, .. })
+            | Config::MSYS2(LocalConfig { shell_type, .. })
+            | Config::Custom(LocalConfig { shell_type, .. }) => {
+                supports_session_spawning_for_shell_type(*shell_type)
+            }
+        }
     }
 }
 
@@ -631,6 +653,7 @@ impl AvailableShells {
                 StartupShell::Zsh,
                 StartupShell::Bash,
                 StartupShell::Fish,
+                StartupShell::Nu,
                 StartupShell::PowerShell,
             ]
             .into_iter()
@@ -699,12 +722,14 @@ impl AvailableShells {
                 (ShellType::Zsh, "zsh.exe"),
                 (ShellType::Bash, "bash.exe"),
                 (ShellType::Fish, "fish.exe"),
+                (ShellType::Nu, "nu.exe"),
             ]
         } else {
             vec![
                 (ShellType::Zsh, "zsh"),
                 (ShellType::Bash, "bash"),
                 (ShellType::Fish, "fish"),
+                (ShellType::Nu, "nu"),
                 (ShellType::PowerShell, "pwsh"),
             ]
         }

@@ -74,6 +74,7 @@ pub fn should_use_rc_file_bootstrap_method(
                 .as_ref()
                 .is_some_and(|data| matches!(data, ShellLaunchData::MSYS2 { .. }));
             shell_type == ShellType::Fish
+                || shell_type == ShellType::Nu
                 || shell_type == ShellType::PowerShell
                 || is_poetry_subshell
                 || ((is_pipenv_subshell
@@ -105,7 +106,7 @@ pub fn script_for_shell(shell_type: ShellType, assets: &dyn AssetProvider) -> Co
         ShellType::Bash => "bash.sh",
         ShellType::Zsh => "zsh.sh",
         ShellType::Fish => "fish.sh",
-        ShellType::Nu => todo!("Nushell bootstrap is not implemented yet"),
+        ShellType::Nu => "nu.nu",
         ShellType::PowerShell => "pwsh.ps1",
     };
 
@@ -198,7 +199,7 @@ pub fn init_shell_script_for_shell(shell_type: ShellType, assets: &dyn AssetProv
         ShellType::Zsh => load_and_escape_script("bundled/bootstrap/zsh_init_shell.sh", assets),
         ShellType::Bash => load_and_escape_script("bundled/bootstrap/bash_init_shell.sh", assets),
         ShellType::Fish => load_and_escape_script("bundled/bootstrap/fish_init_shell.sh", assets),
-        ShellType::Nu => todo!("Nushell init shell script is not implemented yet"),
+        ShellType::Nu => load_and_escape_script("bundled/bootstrap/nu_init_shell.nu", assets),
         ShellType::PowerShell => load_script("bundled/bootstrap/pwsh_init_shell.ps1", assets),
     }
 }
@@ -257,7 +258,7 @@ fn init_subshell_script_for_shell(
         ShellType::Fish => {
             load_and_escape_script("bundled/bootstrap/fish_init_subshell.sh", assets)
         }
-        ShellType::Nu => todo!("Nushell init subshell script is not implemented yet"),
+        ShellType::Nu => load_script("bundled/bootstrap/nu_init_shell.nu", assets),
         // TODO(PLAT-750)
         ShellType::PowerShell => todo!(),
     };
@@ -292,7 +293,7 @@ pub fn raw_init_shell_script_for_shell(
         ShellType::Bash => "bundled/bootstrap/bash_init_shell.sh",
         ShellType::Zsh => "bundled/bootstrap/zsh_init_shell.sh",
         ShellType::Fish => "bundled/bootstrap/fish_init_shell.sh",
-        ShellType::Nu => todo!("Nushell raw init shell script is not implemented yet"),
+        ShellType::Nu => "bundled/bootstrap/nu_init_shell.nu",
         ShellType::PowerShell => "bundled/bootstrap/pwsh_init_shell.ps1",
     };
     load_script(file, assets).replace("@@USING_CON_PTY_BOOLEAN@@", &(cfg!(windows).to_string()))
