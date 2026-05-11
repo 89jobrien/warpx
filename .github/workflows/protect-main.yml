@@ -1,0 +1,17 @@
+name: Protect main branch
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  redirect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push to develop instead
+        run: |
+          git push origin HEAD:develop
