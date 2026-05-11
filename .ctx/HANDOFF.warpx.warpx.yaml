@@ -1,6 +1,6 @@
 project: warpx
 id: warpx
-updated: 2026-05-11
+updated: 2026-05-10
 items:
   - id: i1
     doob_uuid: b5eef304-a943-41c0-84d8-2a1c58495d99
@@ -61,8 +61,7 @@ log:
       Verified all Phase 1 personal-mcp MCP tools live in agent mode:
       handoff_scan, handoff_read, handoff_write, env_health, doob_list,
       doob_complete, doob_add. Marked i1 and i5 done.
-    commits:
-      - cb6975a
+    commits: []
     session: 6
   - date: 20260510::215302
     summary: |
