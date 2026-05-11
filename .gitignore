@@ -28,6 +28,9 @@ script/font_fallback/downloaded_fonts
 script/windows/Output
 .aider*
 
+# Handoff state managed by doob — local working files
+.ctx/HANDOFF.*.yaml
+
 # Session context — generated, not committed (except HANDOFF yamls)
 .ctx/*
 !.ctx/HANDOFF.*.yaml
