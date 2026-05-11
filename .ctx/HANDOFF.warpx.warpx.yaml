@@ -1,0 +1,111 @@
+project: warpx
+id: warpx
+updated: 20260510::215302
+items:
+  - id: i1
+    doob_uuid: b5eef304-a943-41c0-84d8-2a1c58495d99
+    name: null
+    priority: P1
+    status: open
+    title: Merge personal-mcp Phase 1 MCP tools into Warp agent mode
+    description: |
+      personal-mcp now has doob_list/complete/add, handoff_scan/read/write, and env_health tools on main. Verify they appear in Warp agent mode tool list and test a live agent query against each.
+    files:
+      - ~/.warp/.mcp.json
+    completed: null
+    extra: []
+  - id: i4
+    doob_uuid: 2c0c5b4e-f026-4d1c-a0f8-13d3c162e37c
+    name: null
+    priority: P2
+    status: open
+    title: "Implement Phase 3: Doob sidebar panel in warpx"
+    description: |
+      Left sidebar panel for doob tasks. Entity-Component-Handle pattern, reads via doob_list MCP tool, inline complete/add actions. Feature-flagged. Candidate for orca-strait orchestration after Phase 2 is complete.
+    files:
+      - app/src/left_sidebar/
+      - crates/warp_features/src/lib.rs
+    completed: null
+    extra: []
+  - id: i5
+    name: null
+    priority: P1
+    status: open
+    title: "Commit and merge nushell shell integration branch"
+    description: |
+      Branch joe/nushell-shelltype-metadata has uncommitted work completing the nushell
+      session spawning integration. Changes include: available_shells.rs (spawn guard
+      flipped, Nu shown in command palette), session_settings/startup_shell.rs (Nu
+      variant), bootstrap.rs (nu.sh + nu_init_shell.sh wired, RC-file method enabled),
+      local_tty/shell.rs (arguments_for_session_spawning_command for Nu), and new
+      bootstrap asset files. All 19 nushell + bootstrap tests pass, cargo clippy clean.
+      Needs commit then merge to joe/main. Prompt hooks (Precmd/Preexec/CommandFinished)
+      are implemented but not yet validated end-to-end in a live session.
+    files:
+      - app/src/terminal/available_shells.rs
+      - app/src/terminal/available_shells_test.rs
+      - app/src/terminal/bootstrap.rs
+      - app/src/terminal/local_tty/shell.rs
+      - app/src/terminal/session_settings/startup_shell.rs
+      - app/src/search/command_palette/new_session/data_source.rs
+      - app/src/tab_configs/tab_config.rs
+      - app/assets/bundled/bootstrap/nu.sh
+      - app/assets/bundled/bootstrap/nu_init_shell.sh
+    completed: null
+    extra: []
+log:
+  - date: 20260510::215302
+    summary: |
+      Continued nushell shell integration on branch joe/nushell-shelltype-metadata.
+      Implemented session spawning: arguments_for_session_spawning_command for Nu
+      (bash wrapper -> exec nu --login -e), RC-file bootstrap method enabled for Nu,
+      nu_init_shell.sh (sends InitShell DCS with session_id/shell/user/hostname via
+      Nu encode hex), nu.sh bootstrap (warp_send_json_message, warp_escape_json,
+      warp_precmd with Precmd+CommandFinished hooks, warp_preexec, Nu config hook
+      wiring, Bootstrapped signal). Flipped supports_session_spawning guard to true
+      for Nu. Nu now appears in command palette and shell selector. All 19 nushell +
+      bootstrap tests pass, cargo clippy -- -D warnings clean. Work uncommitted;
+      i5 added to track merge.
+    commits: []
+    session: 5
+  - date: 20260510::171419
+    summary: |
+      Continued P1 personal-mcp triage. Found source already registers
+      handoff_scan/handoff_read/handoff_write and env_health; live schemas were from
+      a stale running binary. Added .DS_Store ignores in personal-mcp, fixed three
+      clippy warnings, verified cargo test and cargo clippy -- -D warnings, built
+      release, and installed /Users/joe/.local/bin/personal-mcp. Added
+      /Users/joe/.warp/.mcp.json pointing Warp file-based MCP at the installed
+      binary. Direct MCP stdio tools/list on the installed binary now advertises
+      doob_*, handoff_*, env_health, and godmode_* tools. Current Warp agent MCP
+      context did not hot-reload after killing the stale process, so final Warp UI
+      verification still requires a fresh agent/MCP reload.
+    commits: []
+    session: 4
+  - date: 20260510::161931
+    summary: |
+      Session handoff triage: synced HANDOFF via doob; no unreviewed human-edit or
+      P0 items found. P1 MCP verification partially succeeded: personal MCP exposes
+      and live-tested doob_list/doob_add/doob_complete, including completing a
+      temporary smoke-test task. Expected handoff_* and env_health tools were not
+      discoverable, and an exact handoff_scan MCP call failed as unregistered, so
+      the P1 remains blocked. P2 doob sidebar implementation was skipped because P1
+      encountered an unexpected tool-registration mismatch.
+    commits: []
+    session: 3
+  - date: 20260430::154600
+    summary: |
+      Verified Phase 1 MCP tools live in personal-mcp (doob_list/complete/add,
+      handoff_scan/read/write, env_health). Wrote Phase 2 plan. Implemented Phase 2:
+      doob cache module (src/cache.rs, refreshes on every mutation), Starship
+      custom.doob + custom.doob_urgent modules, Nu PWD hook showing overdue count on
+      cd, handon banner in env.nu on shell start.
+    commits: []
+    session: 2
+  - date: 20260429::174550
+    summary: |
+      Brainstormed warpx ecosystem integration design; wrote spec and Phase 1 plan;
+      shipped doob/handoff/env_health MCP tools to personal-mcp; installed nuenv,
+      did-you-mean, toolkit-hook Nu modules in dotfiles; created ~/dev/.env.nu.
+    commits: []
+    session: 1
