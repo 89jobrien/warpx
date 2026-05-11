@@ -65,6 +65,10 @@ jobs:
             name: "Linux"
             runner: ubuntu-latest
             extra_test_args: ""
+          - os: "macos"
+            name: "macOS"
+            runner: [self-hosted, macos]
+            extra_test_args: ""
     runs-on: ${{ matrix.runner }}
     needs: params
     permissions:
@@ -91,6 +95,10 @@ jobs:
           FISH_PATH="$(which fish || echo "")"
           echo "fish_path=$FISH_PATH" >> $GITHUB_OUTPUT
 
+      - name: Install xvfb (Linux)
+        if: matrix.os == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+
       - name: Install cargo nextest
         shell: bash
         run: |
@@ -109,7 +117,13 @@ jobs:
 
       - name: Run shell-agnostic integration tests
         if: success() || failure()
-        run: cargo nextest run ${{ env.WORKSPACE_TEST_ARGS }} ${{ matrix.extra_test_args }} -E "package(integration) and not test(shell_integration_tests) and not test(/_ssh_/) and not test(ui_tests)"
+        shell: bash
+        run: |
+          if [ "${{ matrix.os }}" = "linux" ]; then
+            xvfb-run --auto-servernum cargo nextest run ${{ env.WORKSPACE_TEST_ARGS }} ${{ matrix.extra_test_args }} -E "package(integration) and not test(shell_integration_tests) and not test(/_ssh_/) and not test(ui_tests)"
+          else
+            cargo nextest run ${{ env.WORKSPACE_TEST_ARGS }} ${{ matrix.extra_test_args }} -E "package(integration) and not test(shell_integration_tests) and not test(/_ssh_/) and not test(ui_tests)"
+          fi
         env:
           WARP_SHELL_PATH: ${{ steps.echo_shells.outputs.zsh_path }}
 
