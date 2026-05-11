@@ -1,3 +1,4 @@
+use command::blocking::Command;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
@@ -5,29 +6,43 @@ use warp_core::ui::theme::Fill;
 use warp_core::ui::Icon;
 use warpui::{
     elements::{
-        ClippedScrollStateHandle, ClippedScrollable, Container, CrossAxisAlignment, Element, Flex,
-        Hoverable, MainAxisSize, MouseStateHandle, ParentElement, ScrollbarWidth, Shrinkable, Text,
+        ChildView, ClippedScrollStateHandle, ClippedScrollable, ConstrainedBox, Container,
+        CrossAxisAlignment, Element, Flex, Hoverable, MainAxisSize, MouseStateHandle,
+        ParentElement, ScrollbarWidth, Shrinkable, Text,
     },
     ui_components::components::UiComponent,
-    AppContext, Entity, SingletonEntity, View, ViewContext,
+    AppContext, Entity, SingletonEntity, View, ViewContext, ViewHandle,
 };
 
 use crate::appearance::Appearance;
+use crate::editor::{EditorOptions, EditorView, Event as EditorEvent, TextOptions};
 use crate::ui_components::buttons::icon_button;
 
 use super::model::{HandoffItem, HandoffModel, HandoffModelEvent, LoadState};
+
+const SCRATCHPAD_MAX_HEIGHT: f32 = 24.;
+
+/// Blue color for issue badges.
+fn issue_badge_color() -> warpui::color::ColorU {
+    warpui::color::ColorU::new(66, 133, 244, 255)
+}
 
 pub struct HandoffPanel {
     model: warpui::ModelHandle<HandoffModel>,
     expanded: HashSet<String>,
     refresh_mouse_state: MouseStateHandle,
+    sync_mouse_state: MouseStateHandle,
     scroll_state: ClippedScrollStateHandle,
+    /// Single-line editor for hj commands.
+    scratchpad_editor: ViewHandle<EditorView>,
 }
 
 #[derive(Clone, Debug)]
 pub enum HandoffPanelAction {
     Refresh,
+    Sync,
     ToggleExpand(String),
+    OpenIssue(String, u64),
 }
 
 #[derive(Clone, Debug)]
@@ -45,8 +60,16 @@ impl HandoffPanel {
     pub fn new(ctx: &mut ViewContext<Self>) -> Self {
         let model = ctx.add_model(HandoffModel::new);
 
-        ctx.subscribe_to_model(&model, |_me, _, event, ctx| match event {
+        ctx.subscribe_to_model(&model, |me, _, event, ctx| match event {
             HandoffModelEvent::Loaded | HandoffModelEvent::Error(_) => ctx.notify(),
+            HandoffModelEvent::CommandDone => {
+                // After a command completes, refresh the item list
+                let cwd = resolve_cwd();
+                me.model.update(ctx, |m, ctx| {
+                    m.load(cwd, ctx);
+                });
+                ctx.notify();
+            }
         });
 
         let cwd = resolve_cwd();
@@ -55,11 +78,48 @@ impl HandoffPanel {
             m.load(cwd, ctx);
         });
 
+        // Create single-line editor for the scratchpad
+        let scratchpad_editor = ctx.add_typed_action_view(|ctx| {
+            let appearance = Appearance::as_ref(ctx);
+            let options = EditorOptions {
+                text: TextOptions::ui_text(Some(10.), appearance),
+                single_line: true,
+                autogrow: false,
+                ..Default::default()
+            };
+            let mut editor = EditorView::new(options, ctx);
+            editor.set_placeholder_text("hj ...", ctx);
+            editor
+        });
+
+        ctx.subscribe_to_view(&scratchpad_editor, |me, _, event, ctx| {
+            me.handle_editor_event(event, ctx);
+        });
+
         Self {
             model,
             expanded: HashSet::new(),
             refresh_mouse_state: MouseStateHandle::default(),
+            sync_mouse_state: MouseStateHandle::default(),
             scroll_state: ClippedScrollStateHandle::default(),
+            scratchpad_editor,
+        }
+    }
+
+    fn handle_editor_event(&mut self, event: &EditorEvent, ctx: &mut ViewContext<Self>) {
+        if let EditorEvent::Enter = event {
+            let buffer_text = self.scratchpad_editor.as_ref(ctx).buffer_text(ctx);
+            let trimmed = buffer_text.trim().to_string();
+            if !trimmed.is_empty() {
+                // Clear the editor
+                self.scratchpad_editor.update(ctx, |editor, ctx| {
+                    editor.set_buffer_text("", ctx);
+                });
+                // Run the command
+                self.model.update(ctx, |m, ctx| {
+                    m.run_command(trimmed, ctx);
+                });
+            }
         }
     }
 
@@ -98,6 +158,29 @@ impl HandoffPanel {
         .finish()
     }
 
+    fn render_issue_badge(item: &HandoffItem, appearance: &Appearance) -> Option<Box<dyn Element>> {
+        let issue_num = item.issue_number?;
+        let repo = item.issue_repo.clone()?;
+        let label = format!("#{issue_num}");
+        let badge_mouse = MouseStateHandle::default();
+
+        let badge = Container::new(
+            Text::new(label, appearance.ui_font_family(), 9.)
+                .with_color(Fill::Solid(issue_badge_color()).into_solid())
+                .finish(),
+        )
+        .with_padding_left(4.)
+        .finish();
+
+        let clickable = Hoverable::new(badge_mouse, move |_| badge)
+            .on_click(move |ctx, _, _| {
+                ctx.dispatch_typed_action(HandoffPanelAction::OpenIssue(repo.clone(), issue_num));
+            })
+            .finish();
+
+        Some(clickable)
+    }
+
     fn render_item(&self, item: &HandoffItem, appearance: &Appearance) -> Box<dyn Element> {
         let is_expanded = self.expanded.contains(&item.id);
         let item_id = item.id.clone();
@@ -108,7 +191,7 @@ impl HandoffPanel {
 
         let title_text = item.title.clone().unwrap_or_else(|| item.id.clone());
 
-        let row = Flex::row()
+        let mut row = Flex::row()
             .with_cross_axis_alignment(CrossAxisAlignment::Center)
             .with_child(Self::render_priority_badge(
                 item.priority.as_deref(),
@@ -122,9 +205,14 @@ impl HandoffPanel {
                         .finish(),
                 )
                 .finish(),
-            )
-            .with_main_axis_size(MainAxisSize::Max)
-            .finish();
+            );
+
+        // Add issue badge if linked
+        if let Some(badge) = Self::render_issue_badge(item, appearance) {
+            row = row.with_child(badge);
+        }
+
+        let row = row.with_main_axis_size(MainAxisSize::Max).finish();
 
         let row_mouse = MouseStateHandle::default();
         let row_id = item_id.clone();
@@ -165,16 +253,6 @@ impl HandoffPanel {
         col.finish()
     }
 
-    /// Extract project name from source filename: `HANDOFF.<id>.<project>.yaml` → `<project>`.
-    fn project_from_source(source: &str) -> &str {
-        let stripped = source
-            .strip_prefix("HANDOFF.")
-            .unwrap_or(source)
-            .strip_suffix(".yaml")
-            .unwrap_or(source);
-        stripped.rsplit('.').next().unwrap_or(stripped)
-    }
-
     fn render_project_header(project: &str, appearance: &Appearance) -> Box<dyn Element> {
         let sub_color = appearance
             .theme()
@@ -203,7 +281,7 @@ impl HandoffPanel {
         let mut by_project: HashMap<String, Vec<&HandoffItem>> = HashMap::new();
         let mut seen: Vec<String> = Vec::new();
         for item in items {
-            let proj = Self::project_from_source(&item.source_file).to_string();
+            let proj = warpx::handoff::project_from_source(&item.source_file).to_string();
             if !by_project.contains_key(&proj) {
                 seen.push(proj.clone());
             }
@@ -230,6 +308,99 @@ impl HandoffPanel {
 
         col.finish()
     }
+
+    fn render_command_output(
+        result: &warpx::handoff::HjCommandResult,
+        appearance: &Appearance,
+    ) -> Box<dyn Element> {
+        let sub_color = appearance
+            .theme()
+            .sub_text_color(appearance.theme().background())
+            .into_solid();
+
+        let output = if !result.stdout.is_empty() {
+            result.stdout.trim().to_string()
+        } else if !result.stderr.is_empty() {
+            result.stderr.trim().to_string()
+        } else {
+            "(no output)".to_string()
+        };
+
+        // Truncate long output
+        let display = if output.len() > 500 {
+            format!("{}\n...(truncated)", &output[..500])
+        } else {
+            output
+        };
+
+        let color = if result.success {
+            sub_color
+        } else {
+            Fill::error().into_solid()
+        };
+
+        let mut col = Flex::column();
+
+        // Show the command that was run
+        col = col.with_child(
+            Container::new(
+                Text::new(
+                    format!("> {}", result.command),
+                    appearance.ui_font_family(),
+                    9.,
+                )
+                .with_color(sub_color)
+                .finish(),
+            )
+            .with_padding_left(10.)
+            .with_padding_right(10.)
+            .with_padding_top(4.)
+            .finish(),
+        );
+
+        col = col.with_child(
+            Container::new(
+                Text::new(display, appearance.ui_font_family(), 9.)
+                    .with_color(color)
+                    .finish(),
+            )
+            .with_padding_left(10.)
+            .with_padding_right(10.)
+            .with_padding_top(2.)
+            .with_padding_bottom(6.)
+            .finish(),
+        );
+
+        col.finish()
+    }
+
+    fn render_scratchpad(&self, appearance: &Appearance) -> Box<dyn Element> {
+        Flex::column()
+            .with_child(
+                Container::new(
+                    Text::new("hj", appearance.ui_font_family(), 10.)
+                        .with_color(appearance.theme().foreground().into_solid())
+                        .finish(),
+                )
+                .with_padding_left(10.)
+                .with_padding_top(8.)
+                .with_padding_bottom(2.)
+                .finish(),
+            )
+            .with_child(
+                Container::new(
+                    ConstrainedBox::new(ChildView::new(&self.scratchpad_editor).finish())
+                        .with_max_height(SCRATCHPAD_MAX_HEIGHT)
+                        .finish(),
+                )
+                .with_padding_left(10.)
+                .with_padding_right(10.)
+                .with_padding_bottom(8.)
+                .with_background(appearance.theme().surface_2())
+                .finish(),
+            )
+            .finish()
+    }
 }
 
 impl Entity for HandoffPanel {
@@ -247,6 +418,11 @@ impl warpui::TypedActionView for HandoffPanel {
                     m.load(cwd, ctx);
                 });
             }
+            HandoffPanelAction::Sync => {
+                self.model.update(ctx, |m, ctx| {
+                    m.sync(ctx);
+                });
+            }
             HandoffPanelAction::ToggleExpand(id) => {
                 if self.expanded.contains(id) {
                     self.expanded.remove(id);
@@ -254,6 +430,12 @@ impl warpui::TypedActionView for HandoffPanel {
                     self.expanded.insert(id.clone());
                 }
                 ctx.notify();
+            }
+            HandoffPanelAction::OpenIssue(repo, issue_number) => {
+                let url = format!("https://github.com/{repo}/issues/{issue_number}");
+                if let Err(e) = Command::new("open").arg(&url).spawn() {
+                    log::warn!("[handoff] failed to open {url}: {e}");
+                }
             }
         }
     }
@@ -283,6 +465,18 @@ impl View for HandoffPanel {
         .build()
         .on_click(|ctx, _, _| {
             ctx.dispatch_typed_action(HandoffPanelAction::Refresh);
+        })
+        .finish();
+
+        let sync_btn = icon_button(
+            appearance,
+            Icon::RefreshCw04,
+            false,
+            self.sync_mouse_state.clone(),
+        )
+        .build()
+        .on_click(|ctx, _, _| {
+            ctx.dispatch_typed_action(HandoffPanelAction::Sync);
         })
         .finish();
 
@@ -316,6 +510,7 @@ impl View for HandoffPanel {
                     )
                     .finish(),
                 )
+                .with_child(sync_btn)
                 .with_child(refresh_btn)
                 .with_main_axis_size(MainAxisSize::Max)
                 .finish(),
@@ -412,9 +607,27 @@ impl View for HandoffPanel {
             }
         };
 
+        // Command output area
+        let command_output: Box<dyn Element> = if let Some(result) = &model.last_command {
+            Self::render_command_output(result, appearance)
+        } else {
+            // Empty placeholder
+            Container::new(
+                Text::new(String::new(), appearance.ui_font_family(), 1.)
+                    .with_color(sub_color)
+                    .finish(),
+            )
+            .finish()
+        };
+
+        // Scratchpad
+        let scratchpad = self.render_scratchpad(appearance);
+
         Flex::column()
             .with_child(header)
             .with_child(Shrinkable::new(1.0, body).finish())
+            .with_child(command_output)
+            .with_child(scratchpad)
             .with_main_axis_size(MainAxisSize::Max)
             .finish()
     }

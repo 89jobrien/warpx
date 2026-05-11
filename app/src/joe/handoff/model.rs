@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 use warpui::{Entity, ModelContext};
-pub use warpx::handoff::{load_for_directory, HandoffItem};
+pub use warpx::handoff::{HandoffItem, HjCommandResult};
 
 /// Load state for the panel.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -17,6 +17,8 @@ pub struct HandoffModel {
     pub items: Vec<HandoffItem>,
     pub load_state: LoadState,
     pub project_order: Vec<String>,
+    /// Most recent scratchpad command result.
+    pub last_command: Option<HjCommandResult>,
 }
 
 impl HandoffModel {
@@ -26,6 +28,7 @@ impl HandoffModel {
             items: Vec::new(),
             load_state: LoadState::NotLoaded,
             project_order: Vec::new(),
+            last_command: None,
         }
     }
 
@@ -34,7 +37,7 @@ impl HandoffModel {
         ctx.notify();
 
         ctx.spawn(
-            async move { load_for_directory(cwd) },
+            async move { warpx::handoff::load_for_directory(cwd) },
             |me, result, ctx| match result {
                 Ok(loaded) => {
                     me.cwd = loaded.cwd;
@@ -52,6 +55,30 @@ impl HandoffModel {
             },
         );
     }
+
+    /// Run an hj command from the scratchpad.
+    pub fn run_command(&mut self, args: String, ctx: &mut ModelContext<Self>) {
+        ctx.spawn(
+            async move { warpx::handoff::run_hj_command(&args) },
+            |me, result, ctx| {
+                me.last_command = Some(result);
+                ctx.emit(HandoffModelEvent::CommandDone);
+                ctx.notify();
+            },
+        );
+    }
+
+    /// Run hj reconcile (sync).
+    pub fn sync(&mut self, ctx: &mut ModelContext<Self>) {
+        ctx.spawn(
+            async move { warpx::handoff::run_sync() },
+            |me, result, ctx| {
+                me.last_command = Some(result);
+                ctx.emit(HandoffModelEvent::CommandDone);
+                ctx.notify();
+            },
+        );
+    }
 }
 
 impl Entity for HandoffModel {
@@ -63,4 +90,5 @@ pub enum HandoffModelEvent {
     Loaded,
     #[allow(dead_code)]
     Error(String),
+    CommandDone,
 }

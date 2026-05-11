@@ -1,6 +1,6 @@
 project: warpx
 id: warpx
-updated: 20260510::215302
+updated: 2026-05-10
 items:
   - id: i1
     doob_uuid: b5eef304-a943-41c0-84d8-2a1c58495d99
@@ -28,10 +28,11 @@ items:
     completed: null
     extra: []
   - id: i5
+    doob_uuid: null
     name: null
     priority: P1
     status: open
-    title: "Commit and merge nushell shell integration branch"
+    title: Commit and merge nushell shell integration branch
     description: |
       Branch joe/nushell-shelltype-metadata has uncommitted work completing the nushell
       session spawning integration. Changes include: available_shells.rs (spawn guard
