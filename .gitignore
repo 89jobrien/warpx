@@ -73,3 +73,4 @@ __pycache__/
 !.ctx/tasks/
 # handoff-end
 .worktrees/
+.warpx-bump-state
