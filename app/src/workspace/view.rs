@@ -3774,6 +3774,7 @@ impl Workspace {
                 LeftPanelDisplayedTab::Handoff => ToolPanelView::Handoff,
                 LeftPanelDisplayedTab::CtxWindow => ToolPanelView::CtxWindow,
                 LeftPanelDisplayedTab::Doob => ToolPanelView::Doob,
+                LeftPanelDisplayedTab::Handup => ToolPanelView::Handup,
             };
             lp.restore_active_view_from_snapshot(active_view, ctx);
             lp.set_active_pane_group(pane_group.clone(), &self.working_directories_model, ctx);
@@ -16606,6 +16607,7 @@ impl Workspace {
                         ToolPanelView::Handoff => "Handoff",
                         ToolPanelView::CtxWindow => "Context Window",
                         ToolPanelView::Doob => "Doob Tasks",
+                        ToolPanelView::Handup => "Handup",
                     }
                 } else {
                     "Tools panel"
@@ -16663,6 +16665,7 @@ impl Workspace {
                 ToolPanelView::Handoff => "Handoff",
                 ToolPanelView::CtxWindow => "Context Window",
                 ToolPanelView::Doob => "Doob Tasks",
+                ToolPanelView::Handup => "Handup",
             }
         } else {
             "Tools panel"
@@ -19584,6 +19587,9 @@ impl Workspace {
         }
         if FeatureFlag::OzDoobPanel.is_enabled() {
             views.push(ToolPanelView::Doob);
+        }
+        if FeatureFlag::OzHandoff.is_enabled() {
+            views.push(ToolPanelView::Handup);
         }
         views.push(ToolPanelView::CtxWindow);
         views

@@ -25,6 +25,7 @@ use crate::context_window::panel::CtxWindowPanel;
 use crate::drive::panel::{DrivePanel, DrivePanelEvent};
 use crate::joe::doob::panel::DoobPanel;
 use crate::joe::handoff::panel::HandoffPanel;
+use crate::joe::handup::panel::HandupPanel;
 use crate::pane_group::working_directories::WorkingDirectory;
 use crate::pane_group::{PaneGroup, WorkingDirectoriesEvent, WorkingDirectoriesModel};
 #[cfg(feature = "local_fs")]
@@ -83,6 +84,7 @@ pub enum LeftPanelAction {
     Handoff,
     CtxWindow,
     Doob,
+    Handup,
 }
 
 pub enum LeftPanelEvent {
@@ -112,6 +114,7 @@ pub enum ToolPanelView {
     Handoff,
     CtxWindow,
     Doob,
+    Handup,
 }
 
 /// Encapsulates the active view state to enforce that all mutations go through
@@ -181,6 +184,7 @@ pub struct LeftPanelView {
     handoff_panel: ViewHandle<HandoffPanel>,
     ctx_window_panel: ViewHandle<CtxWindowPanel>,
     doob_panel: ViewHandle<DoobPanel>,
+    handup_panel: ViewHandle<HandupPanel>,
     active_view: active_view_state::ActiveViewState,
     toolbelt_buttons: Vec<ToolbeltButtonConfig>,
     active_pane_group: Option<WeakViewHandle<PaneGroup>>,
@@ -228,6 +232,7 @@ impl LeftPanelView {
         let handoff_panel = ctx.add_typed_action_view(HandoffPanel::new);
         let ctx_window_panel = ctx.add_typed_action_view(CtxWindowPanel::new);
         let doob_panel = ctx.add_typed_action_view(DoobPanel::new);
+        let handup_panel = ctx.add_typed_action_view(HandupPanel::new);
 
         ctx.subscribe_to_view(&warp_drive_view, |_me, _, event, ctx| {
             ctx.emit(LeftPanelEvent::WarpDrive(event.clone()));
@@ -328,6 +333,7 @@ impl LeftPanelView {
             handoff_panel,
             ctx_window_panel,
             doob_panel,
+            handup_panel,
             active_view: active_view_state::new(active_view),
             toolbelt_buttons,
             active_pane_group: None,
@@ -491,6 +497,18 @@ impl LeftPanelView {
                     active_icon: None,
                     tooltip_text: "Doob Tasks".to_string(),
                     action: LeftPanelAction::Doob,
+                    render_with_active_state: false,
+                    tooltip_keybinding: toolbelt_tooltip_keybinding(&tooltip_keybinding_names, ctx),
+                    tooltip_keybinding_names,
+                }
+            }
+            ToolPanelView::Handup => {
+                let tooltip_keybinding_names = vec![];
+                ToolbeltButtonConfig {
+                    icon: Icon::ListCollapsed,
+                    active_icon: None,
+                    tooltip_text: "Handup".to_string(),
+                    action: LeftPanelAction::Handup,
                     render_with_active_state: false,
                     tooltip_keybinding: toolbelt_tooltip_keybinding(&tooltip_keybinding_names, ctx),
                     tooltip_keybinding_names,
@@ -747,6 +765,9 @@ impl LeftPanelView {
             ToolPanelView::Doob => {
                 ctx.focus(&self.doob_panel);
             }
+            ToolPanelView::Handup => {
+                ctx.focus(&self.handup_panel);
+            }
         }
     }
 
@@ -902,6 +923,7 @@ impl LeftPanelView {
                 LeftPanelAction::Handoff => self.active_view.get() == ToolPanelView::Handoff,
                 LeftPanelAction::CtxWindow => self.active_view.get() == ToolPanelView::CtxWindow,
                 LeftPanelAction::Doob => self.active_view.get() == ToolPanelView::Doob,
+                LeftPanelAction::Handup => self.active_view.get() == ToolPanelView::Handup,
             };
         }
     }
@@ -1052,6 +1074,9 @@ impl LeftPanelView {
             LeftPanelAction::Doob => {
                 active_view_state::set(self, ToolPanelView::Doob, ctx);
             }
+            LeftPanelAction::Handup => {
+                active_view_state::set(self, ToolPanelView::Handup, ctx);
+            }
         }
     }
 
@@ -1154,6 +1179,7 @@ impl View for LeftPanelView {
                 ToolPanelView::Handoff => ctx.focus(&self.handoff_panel),
                 ToolPanelView::CtxWindow => ctx.focus(&self.ctx_window_panel),
                 ToolPanelView::Doob => ctx.focus(&self.doob_panel),
+                ToolPanelView::Handup => ctx.focus(&self.handup_panel),
             }
         }
     }
@@ -1236,6 +1262,9 @@ impl View for LeftPanelView {
             }
             ToolPanelView::Doob => {
                 Shrinkable::new(1.0, ChildView::new(&self.doob_panel).finish()).finish()
+            }
+            ToolPanelView::Handup => {
+                Shrinkable::new(1.0, ChildView::new(&self.handup_panel).finish()).finish()
             }
         };
 

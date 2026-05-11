@@ -303,6 +303,7 @@ pub enum LeftPanelDisplayedTab {
     Handoff,
     CtxWindow,
     Doob,
+    Handup,
 }
 
 impl From<ToolPanelView> for LeftPanelDisplayedTab {
@@ -315,6 +316,7 @@ impl From<ToolPanelView> for LeftPanelDisplayedTab {
             ToolPanelView::Handoff => LeftPanelDisplayedTab::Handoff,
             ToolPanelView::CtxWindow => LeftPanelDisplayedTab::CtxWindow,
             ToolPanelView::Doob => LeftPanelDisplayedTab::Doob,
+            ToolPanelView::Handup => LeftPanelDisplayedTab::Handup,
         }
     }
 }

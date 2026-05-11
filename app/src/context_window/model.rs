@@ -106,21 +106,52 @@ impl CtxWindowModel {
         }
     }
 
-    fn state_path() -> PathBuf {
-        let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
-        PathBuf::from(home).join(".warp").join("context.json")
-    }
-
     pub fn load(&mut self, ctx: &mut ModelContext<Self>) {
-        let path = Self::state_path();
         ctx.spawn(
             async move {
-                // Load cwd-specific context from context.json (best-effort).
-                let mut state = tokio::fs::read_to_string(&path)
-                    .await
-                    .ok()
-                    .and_then(|c| serde_json::from_str::<ContextState>(&c).ok())
-                    .unwrap_or_default();
+                // Generate context inline (blocking git/doob calls).
+                let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/"));
+                let generated =
+                    tokio::task::spawn_blocking(move || warpx::context::generate_context(&cwd))
+                        .await
+                        .unwrap_or_default();
+
+                let mut state = ContextState {
+                    git: GitSection {
+                        branch: generated.git.branch,
+                        dirty_count: generated.git.dirty_count,
+                        recent_commits: generated.git.recent_commits,
+                    },
+                    ai: AiSection {
+                        claude_md_files: generated.ai.claude_md_files,
+                        mcp_servers: generated.ai.mcp_servers,
+                    },
+                    handoff: HandoffSection {
+                        items: generated
+                            .handoff
+                            .items
+                            .into_iter()
+                            .map(|i| HandoffItem {
+                                summary: i.summary,
+                                priority: i.priority,
+                                status: i.status,
+                            })
+                            .collect(),
+                    },
+                    todos: TodoSection {
+                        pending: generated
+                            .todos
+                            .pending
+                            .into_iter()
+                            .map(|t| TodoItem {
+                                name: t.name,
+                                priority: t.priority,
+                                status: t.status,
+                            })
+                            .collect(),
+                    },
+                    projects: vec![],
+                };
 
                 // Aggregate live handoff data across all projects in ~/.claude/projects/.
                 state.projects = Self::scan_all_projects();

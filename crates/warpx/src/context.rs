@@ -1,13 +1,18 @@
-//! Project context data layer — types and path resolution.
+//! Project context data layer — types, generation, and path resolution.
 //!
-//! Reads `.ctx/context.json` walking up from CWD.
-//! WarpUI model/panel wrappers live in `app/src/joe/project_context/`.
+//! [`generate_context`] produces a [`ProjectContextState`] by running git
+//! commands, scanning CLAUDE.md files, reading MCP config, parsing HANDOFF
+//! YAML, and calling the `doob` CLI.
+//!
+//! WarpUI model/panel wrappers live in `app/src/context_window/`.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-use serde::Deserialize;
+use command::blocking::Command;
 
-#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
 pub struct GitSection {
     #[serde(default)]
     pub branch: String,
@@ -17,7 +22,7 @@ pub struct GitSection {
     pub recent_commits: Vec<String>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
 pub struct AiSection {
     #[serde(default)]
     pub claude_md_files: Vec<String>,
@@ -25,7 +30,7 @@ pub struct AiSection {
     pub mcp_servers: Vec<String>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
 pub struct HandoffItem {
     #[serde(default)]
     pub summary: String,
@@ -35,13 +40,13 @@ pub struct HandoffItem {
     pub status: String,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
 pub struct HandoffSection {
     #[serde(default)]
     pub items: Vec<HandoffItem>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
 pub struct TodoItem {
     #[serde(default)]
     pub name: String,
@@ -51,14 +56,14 @@ pub struct TodoItem {
     pub status: String,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
 pub struct TodoSection {
     #[serde(default)]
     pub pending: Vec<TodoItem>,
 }
 
-/// Context state read from the project-local `.ctx/context.json`.
-#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+/// Context state for a project directory.
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
 pub struct ProjectContextState {
     #[serde(default)]
     pub git: GitSection,
@@ -68,6 +73,217 @@ pub struct ProjectContextState {
     pub handoff: HandoffSection,
     #[serde(default)]
     pub todos: TodoSection,
+}
+
+// ---------------------------------------------------------------------------
+// Generation
+// ---------------------------------------------------------------------------
+
+/// Build a fresh [`ProjectContextState`] by inspecting `cwd`.
+///
+/// This is a blocking call — it shells out to `git` and `doob`.
+pub fn generate_context(cwd: &Path) -> ProjectContextState {
+    ProjectContextState {
+        git: git_section(cwd),
+        ai: ai_section(cwd),
+        handoff: handoff_section(cwd),
+        todos: todo_section(cwd),
+    }
+}
+
+fn home_dir() -> PathBuf {
+    PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/tmp".into()))
+}
+
+fn run_git(cwd: &Path, args: &[&str]) -> Option<String> {
+    Command::new("git")
+        .args(args)
+        .current_dir(cwd)
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+}
+
+fn git_section(cwd: &Path) -> GitSection {
+    let branch = run_git(cwd, &["branch", "--show-current"]).unwrap_or_else(|| "unknown".into());
+    let status = run_git(cwd, &["status", "--porcelain"]).unwrap_or_default();
+    let dirty_count = status.lines().filter(|l| !l.is_empty()).count();
+    let log = run_git(cwd, &["log", "--oneline", "-5"]).unwrap_or_default();
+    let recent_commits: Vec<String> = log.lines().map(|l| l.to_string()).collect();
+    GitSection {
+        branch,
+        dirty_count,
+        recent_commits,
+    }
+}
+
+fn ai_section(cwd: &Path) -> AiSection {
+    let home = home_dir();
+    let mut claude_files = Vec::new();
+
+    let global = home.join(".claude/CLAUDE.md");
+    if global.exists() {
+        claude_files.push(global.display().to_string());
+    }
+    let mut dir: Option<&Path> = Some(cwd);
+    while let Some(d) = dir {
+        let candidate = d.join("CLAUDE.md");
+        if candidate.exists() {
+            claude_files.push(candidate.display().to_string());
+        }
+        dir = d.parent();
+    }
+    claude_files.dedup();
+
+    let mcp_servers = read_mcp_server_names(&home.join(".warp/.mcp.json"));
+    AiSection {
+        claude_md_files: claude_files,
+        mcp_servers,
+    }
+}
+
+fn read_mcp_server_names(path: &Path) -> Vec<String> {
+    let Ok(content) = std::fs::read_to_string(path) else {
+        return vec![];
+    };
+    let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) else {
+        return vec![];
+    };
+    val.get("mcpServers")
+        .or_else(|| val.get("servers"))
+        .and_then(|v| v.as_object())
+        .map(|obj| obj.keys().cloned().collect())
+        .unwrap_or_default()
+}
+
+fn handoff_section(cwd: &Path) -> HandoffSection {
+    let mut items = Vec::new();
+    let mut all_paths: Vec<PathBuf> = Vec::new();
+
+    let root_handoff = cwd.join("HANDOFF.yaml");
+    if root_handoff.exists() {
+        all_paths.push(root_handoff);
+    }
+
+    let ctx_dir = cwd.join(".ctx");
+    if ctx_dir.is_dir()
+        && let Ok(entries) = std::fs::read_dir(&ctx_dir)
+    {
+        for entry in entries.flatten() {
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+            if name.starts_with("HANDOFF.") && name.ends_with(".yaml") {
+                all_paths.push(entry.path());
+            }
+        }
+    }
+
+    for path in all_paths {
+        if let Ok(content) = std::fs::read_to_string(&path) {
+            parse_handoff_yaml(&content, &mut items);
+        }
+    }
+    HandoffSection { items }
+}
+
+fn parse_handoff_yaml(content: &str, items: &mut Vec<HandoffItem>) {
+    let mut in_items = false;
+    let mut title = String::new();
+    let mut priority = String::new();
+    let mut status = String::new();
+
+    for line in content.lines() {
+        if line == "items:" {
+            in_items = true;
+            continue;
+        }
+        if in_items && !line.starts_with(' ') && !line.starts_with('-') && !line.is_empty() {
+            break;
+        }
+        if !in_items {
+            continue;
+        }
+        let trimmed = line.trim();
+        if trimmed.starts_with("- ") {
+            if !title.is_empty() {
+                items.push(HandoffItem {
+                    summary: std::mem::take(&mut title),
+                    priority: std::mem::take(&mut priority),
+                    status: std::mem::take(&mut status),
+                });
+            }
+            let after = trimmed.strip_prefix("- ").unwrap_or("");
+            if let Some(val) = after.strip_prefix("title:") {
+                title = val.trim().trim_matches('\'').trim_matches('"').to_string();
+            }
+        } else if let Some(val) = trimmed.strip_prefix("title:") {
+            title = val.trim().trim_matches('\'').trim_matches('"').to_string();
+        } else if let Some(val) = trimmed.strip_prefix("priority:") {
+            priority = val.trim().trim_matches('"').to_string();
+        } else if let Some(val) = trimmed.strip_prefix("status:") {
+            status = val.trim().trim_matches('"').to_string();
+        }
+    }
+    if !title.is_empty() {
+        items.push(HandoffItem {
+            summary: title,
+            priority,
+            status,
+        });
+    }
+}
+
+fn todo_section(cwd: &Path) -> TodoSection {
+    let output = Command::new("doob")
+        .args(["todo", "list", "--status", "pending", "--format", "json"])
+        .current_dir(cwd)
+        .output();
+
+    let pending = match output {
+        Ok(o) if o.status.success() => {
+            let text = String::from_utf8_lossy(&o.stdout);
+            parse_doob_json(&text, cwd)
+        }
+        _ => vec![],
+    };
+    TodoSection { pending }
+}
+
+fn parse_doob_json(text: &str, cwd: &Path) -> Vec<TodoItem> {
+    let Ok(val) = serde_json::from_str::<serde_json::Value>(text) else {
+        return vec![];
+    };
+    let Some(arr) = val.as_array() else {
+        return vec![];
+    };
+    let cwd_str = cwd.display().to_string();
+    arr.iter()
+        .filter(|item| {
+            item.get("project")
+                .and_then(|p| p.as_str())
+                .map(|p| cwd_str.contains(p))
+                .unwrap_or(true)
+        })
+        .take(15)
+        .map(|item| TodoItem {
+            name: item
+                .get("name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("?")
+                .to_string(),
+            priority: item
+                .get("priority")
+                .and_then(|v| v.as_str())
+                .unwrap_or("?")
+                .to_string(),
+            status: item
+                .get("status")
+                .and_then(|v| v.as_str())
+                .unwrap_or("pending")
+                .to_string(),
+        })
+        .collect()
 }
 
 /// Walk up from `dir` looking for `.ctx/context.json`.

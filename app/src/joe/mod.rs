@@ -6,6 +6,7 @@
 pub mod claude_projects;
 pub mod doob;
 pub mod handoff;
+pub mod handup;
 pub mod hooks;
 pub mod jit_context;
 pub mod project_context;
