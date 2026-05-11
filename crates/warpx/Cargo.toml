@@ -1,6 +1,6 @@
 [package]
 name = "warpx"
-version = "0.3.0"
+version.workspace = true
 edition = "2024"
 authors.workspace = true
 publish.workspace = true

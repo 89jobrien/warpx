@@ -11,11 +11,11 @@ use std::fs;
 use std::path::Path;
 
 pub fn bump(root: &Path, level: &str) -> Result<()> {
-    let manifest_path = root.join("crates/warpx/Cargo.toml");
+    let manifest_path = root.join("Cargo.toml");
     let content = fs::read_to_string(&manifest_path)?;
 
     let current = parse_crate_version(&content)
-        .ok_or_else(|| anyhow::anyhow!("could not find version in crates/warpx/Cargo.toml"))?;
+        .ok_or_else(|| anyhow::anyhow!("could not find version in workspace Cargo.toml"))?;
 
     let effective_level = if level == "minor" && minor_bumped_today(root) {
         eprintln!("[warpx] minor bump already applied today — downgrading to patch");

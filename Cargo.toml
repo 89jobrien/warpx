@@ -24,6 +24,7 @@ default-members = [
 ]
 
 [workspace.package]
+version = "0.3.0"
 authors = ["Warp Team <dev@warp.dev>"]
 license = "AGPL-3.0-only"
 publish = false
