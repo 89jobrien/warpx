@@ -4,21 +4,26 @@ use warp_core::ui::theme::Fill;
 use warp_core::ui::Icon;
 use warpui::{
     elements::{
-        ClippedScrollStateHandle, ClippedScrollable, Container, CrossAxisAlignment, Element, Flex,
-        Hoverable, MainAxisSize, MouseStateHandle, ParentElement, ScrollbarWidth, Shrinkable, Text,
+        ChildView, ClippedScrollStateHandle, ClippedScrollable, Container, CrossAxisAlignment,
+        Element, Flex, Hoverable, MainAxisSize, MouseStateHandle, ParentElement, ScrollbarWidth,
+        Shrinkable, Text,
     },
     ui_components::components::UiComponent,
-    AppContext, Entity, SingletonEntity, View, ViewContext,
+    AppContext, Entity, SingletonEntity, View, ViewContext, ViewHandle,
 };
 
 use crate::appearance::Appearance;
 use crate::ui_components::buttons::icon_button;
+use crate::view_components::{SubmittableTextInput, SubmittableTextInputEvent};
 
-use super::model::{DoobItem, DoobModel, DoobModelEvent, LoadState};
+use super::model::{AddDoobItem, DoobItem, DoobModel, DoobModelEvent, LoadState, MutationState};
 
 pub struct DoobPanel {
     model: warpui::ModelHandle<DoobModel>,
+    add_input: ViewHandle<SubmittableTextInput>,
     expanded: HashSet<String>,
+    row_mouse_states: HashMap<String, MouseStateHandle>,
+    complete_mouse_states: HashMap<String, MouseStateHandle>,
     refresh_mouse_state: MouseStateHandle,
     scroll_state: ClippedScrollStateHandle,
 }
@@ -27,6 +32,7 @@ pub struct DoobPanel {
 pub enum DoobPanelAction {
     Refresh,
     ToggleExpand(String),
+    Complete(String),
 }
 
 #[derive(Clone, Debug)]
@@ -38,9 +44,35 @@ pub enum DoobPanelEvent {
 impl DoobPanel {
     pub fn new(ctx: &mut ViewContext<Self>) -> Self {
         let model = ctx.add_model(DoobModel::new);
+        let add_input = ctx.add_typed_action_view(|ctx| {
+            let mut input =
+                SubmittableTextInput::new(ctx).validate_on_submit(|text| !text.trim().is_empty());
+            input.set_placeholder_text("Add Doob task", ctx);
+            input.set_outer_margins(4., 6., ctx);
+            input
+        });
 
-        ctx.subscribe_to_model(&model, |_me, _, event, ctx| match event {
-            DoobModelEvent::Loaded | DoobModelEvent::Error(_) => ctx.notify(),
+        ctx.subscribe_to_model(&model, |me, _, event, ctx| match event {
+            DoobModelEvent::Loaded => {
+                me.sync_item_mouse_states(ctx);
+                ctx.notify();
+            }
+            DoobModelEvent::Mutated | DoobModelEvent::Error(_) => ctx.notify(),
+        });
+
+        ctx.subscribe_to_view(&add_input, |me, _, event, ctx| match event {
+            SubmittableTextInputEvent::Submit(title) => {
+                let item = AddDoobItem {
+                    title: title.clone(),
+                    priority: None,
+                    due: None,
+                    repo: None,
+                };
+                me.model.update(ctx, |model, ctx| {
+                    model.add(item, ctx);
+                });
+            }
+            SubmittableTextInputEvent::Escape => {}
         });
 
         model.update(ctx, |m, ctx| {
@@ -49,9 +81,31 @@ impl DoobPanel {
 
         Self {
             model,
+            add_input,
             expanded: HashSet::new(),
+            row_mouse_states: HashMap::new(),
+            complete_mouse_states: HashMap::new(),
             refresh_mouse_state: MouseStateHandle::default(),
             scroll_state: ClippedScrollStateHandle::default(),
+        }
+    }
+
+    fn sync_item_mouse_states(&mut self, ctx: &mut ViewContext<Self>) {
+        let item_ids: HashSet<String> = self
+            .model
+            .as_ref(ctx)
+            .items
+            .iter()
+            .map(|item| item.id.clone())
+            .collect();
+
+        self.row_mouse_states.retain(|id, _| item_ids.contains(id));
+        self.complete_mouse_states
+            .retain(|id, _| item_ids.contains(id));
+
+        for id in item_ids {
+            self.row_mouse_states.entry(id.clone()).or_default();
+            self.complete_mouse_states.entry(id).or_default();
         }
     }
 
@@ -90,7 +144,42 @@ impl DoobPanel {
         .finish()
     }
 
-    fn render_item(&self, item: &DoobItem, appearance: &Appearance) -> Box<dyn Element> {
+    fn render_complete_button(
+        &self,
+        item: &DoobItem,
+        is_mutating: bool,
+        appearance: &Appearance,
+    ) -> Option<Box<dyn Element>> {
+        if !matches!(
+            item.status.as_deref(),
+            Some("pending" | "in_progress" | "in-progress")
+        ) {
+            return None;
+        }
+
+        let mouse_state = self.complete_mouse_states.get(&item.id).cloned()?;
+
+        let item_id = item.id.clone();
+        let mut button = icon_button(appearance, Icon::Check, false, mouse_state).build();
+        if is_mutating {
+            button = button.disable();
+        }
+
+        Some(
+            button
+                .on_click(move |ctx, _, _| {
+                    ctx.dispatch_typed_action(DoobPanelAction::Complete(item_id.clone()));
+                })
+                .finish(),
+        )
+    }
+
+    fn render_item(
+        &self,
+        item: &DoobItem,
+        is_mutating: bool,
+        appearance: &Appearance,
+    ) -> Box<dyn Element> {
         let is_expanded = self.expanded.contains(&item.id);
         let item_id = item.id.clone();
         let sub_color = appearance
@@ -100,7 +189,7 @@ impl DoobPanel {
 
         let title_text = item.title.clone().unwrap_or_else(|| item.id.clone());
 
-        let row = Flex::row()
+        let row_content = Flex::row()
             .with_cross_axis_alignment(CrossAxisAlignment::Center)
             .with_child(Self::render_priority_badge(
                 item.priority.as_deref(),
@@ -117,17 +206,29 @@ impl DoobPanel {
             )
             .with_main_axis_size(MainAxisSize::Max)
             .finish();
-
-        let row_mouse = MouseStateHandle::default();
+        let row_mouse = self
+            .row_mouse_states
+            .get(&item.id)
+            .cloned()
+            .unwrap_or_default();
         let row_id = item_id.clone();
-        let clickable_row = Hoverable::new(row_mouse, move |_| row)
+        let clickable_row = Hoverable::new(row_mouse, move |_| row_content)
             .on_click(move |ctx, _, _| {
                 ctx.dispatch_typed_action(DoobPanelAction::ToggleExpand(row_id.clone()));
             })
             .finish();
 
+        let mut row = Flex::row()
+            .with_cross_axis_alignment(CrossAxisAlignment::Center)
+            .with_child(Shrinkable::new(1., clickable_row).finish())
+            .with_main_axis_size(MainAxisSize::Max);
+
+        if let Some(complete_button) = self.render_complete_button(item, is_mutating, appearance) {
+            row = row.with_child(complete_button);
+        }
+
         let mut col = Flex::column().with_child(
-            Container::new(clickable_row)
+            Container::new(row.finish())
                 .with_padding_left(16.)
                 .with_padding_top(2.)
                 .with_padding_bottom(2.)
@@ -177,6 +278,7 @@ impl DoobPanel {
         &self,
         title: &str,
         items: &[&DoobItem],
+        is_mutating: bool,
         appearance: &Appearance,
     ) -> Box<dyn Element> {
         let mut col = Flex::column().with_child(Self::render_section_header(title, appearance));
@@ -197,11 +299,47 @@ impl DoobPanel {
         for proj in &project_order {
             col = col.with_child(Self::render_project_header(proj, appearance));
             for item in &by_project[proj] {
-                col = col.with_child(self.render_item(item, appearance));
+                col = col.with_child(self.render_item(item, is_mutating, appearance));
             }
         }
 
         col.finish()
+    }
+
+    fn render_mutation_message(
+        model: &DoobModel,
+        appearance: &Appearance,
+    ) -> Option<Box<dyn Element>> {
+        let (message, color) = match &model.mutation_state {
+            MutationState::Idle => return None,
+            MutationState::Mutating => (
+                "Updating Doob\u{2026}".to_string(),
+                appearance
+                    .theme()
+                    .sub_text_color(appearance.theme().background())
+                    .into_solid(),
+            ),
+            MutationState::Success(message) => (
+                message.clone(),
+                appearance
+                    .theme()
+                    .sub_text_color(appearance.theme().background())
+                    .into_solid(),
+            ),
+            MutationState::Error(error) => (format!("Error: {error}"), Fill::error().into_solid()),
+        };
+
+        Some(
+            Container::new(
+                Text::new(message, appearance.ui_font_family(), 10.)
+                    .with_color(color)
+                    .finish(),
+            )
+            .with_padding_left(10.)
+            .with_padding_right(10.)
+            .with_padding_bottom(4.)
+            .finish(),
+        )
     }
 }
 
@@ -217,6 +355,12 @@ impl warpui::TypedActionView for DoobPanel {
             DoobPanelAction::Refresh => {
                 self.model.update(ctx, |m, ctx| {
                     m.load(ctx);
+                });
+            }
+            DoobPanelAction::Complete(id) => {
+                let id = id.clone();
+                self.model.update(ctx, |m, ctx| {
+                    m.complete(id, ctx);
                 });
             }
             DoobPanelAction::ToggleExpand(id) => {
@@ -329,6 +473,7 @@ impl View for DoobPanel {
                     .finish()
                 } else {
                     let theme = appearance.theme();
+                    let is_mutating = model.mutation_state == MutationState::Mutating;
                     let pending: Vec<&DoobItem> = model
                         .items
                         .iter()
@@ -347,17 +492,28 @@ impl View for DoobPanel {
 
                     let mut col = Flex::column();
                     if !pending.is_empty() {
-                        col = col.with_child(self.render_group("Pending", &pending, appearance));
+                        col = col.with_child(self.render_group(
+                            "Pending",
+                            &pending,
+                            is_mutating,
+                            appearance,
+                        ));
                     }
                     if !in_progress.is_empty() {
                         col = col.with_child(self.render_group(
                             "In Progress",
                             &in_progress,
+                            is_mutating,
                             appearance,
                         ));
                     }
                     if !done.is_empty() {
-                        col = col.with_child(self.render_group("Done", &done, appearance));
+                        col = col.with_child(self.render_group(
+                            "Done",
+                            &done,
+                            is_mutating,
+                            appearance,
+                        ));
                     }
                     ClippedScrollable::vertical(
                         self.scroll_state.clone(),
@@ -374,6 +530,20 @@ impl View for DoobPanel {
 
         Flex::column()
             .with_child(header)
+            .with_child(
+                Container::new(ChildView::new(&self.add_input).finish())
+                    .with_padding_left(10.)
+                    .with_padding_right(10.)
+                    .finish(),
+            )
+            .with_child(
+                Self::render_mutation_message(model, appearance).unwrap_or_else(|| {
+                    Container::new(
+                        Text::new(String::new(), appearance.ui_font_family(), 0.).finish(),
+                    )
+                    .finish()
+                }),
+            )
             .with_child(Shrinkable::new(1.0, body).finish())
             .with_main_axis_size(MainAxisSize::Max)
             .finish()

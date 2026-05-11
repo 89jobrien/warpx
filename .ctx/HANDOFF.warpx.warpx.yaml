@@ -16,14 +16,6 @@ items:
     completed: null
     extra: []
 log:
-  - date: 20260511::154658
-    summary: |
-      Handoff triage found SQLite stale for i1 and i5 while YAML/log/git history
-      showed both completed. Confirmed Phase 1 personal MCP tools are advertised in
-      agent context; handoff_scan, handoff_read, and env_health live calls succeed.
-      Pruned completed i1/i5 from active items; left i4 open as remaining P2.
-    commits: []
-    session: 7
   - date: 20260511::221400
     summary: |
       Committed nushell integration (cb6975a), merged to develop, pushed.
@@ -32,6 +24,14 @@ log:
       doob_complete, doob_add. Marked i1 and i5 done.
     commits: []
     session: 6
+  - date: 20260511::154658
+    summary: |
+      Handoff triage found SQLite stale for i1 and i5 while YAML/log/git history
+      showed both completed. Confirmed Phase 1 personal MCP tools are advertised in
+      agent context; handoff_scan, handoff_read, and env_health live calls succeed.
+      Pruned completed i1/i5 from active items; left i4 open as remaining P2.
+    commits: []
+    session: 7
   - date: 20260510::215302
     summary: |
       Continued nushell shell integration on branch joe/nushell-shelltype-metadata.

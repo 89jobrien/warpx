@@ -65,16 +65,6 @@ use crate::{
     TelemetryEvent,
 };
 
-#[derive(Default)]
-struct MouseStateHandles {
-    project_explorer_button: MouseStateHandle,
-    global_search_button: MouseStateHandle,
-    warp_drive_button: MouseStateHandle,
-    conversation_list_view_button: MouseStateHandle,
-    handoff_button: MouseStateHandle,
-    doob_button: MouseStateHandle,
-}
-
 #[derive(Clone, Debug)]
 pub enum LeftPanelAction {
     ProjectExplorer,
@@ -158,6 +148,7 @@ mod active_view_state {
 }
 
 pub struct ToolbeltButtonConfig {
+    pub mouse_state: MouseStateHandle,
     pub icon: warp_core::ui::Icon,
     /// Optional icon to use when the given toolbelt option is in an active state.
     pub active_icon: Option<warp_core::ui::Icon>,
@@ -177,7 +168,6 @@ pub struct ToolbeltButtonConfig {
 
 pub struct LeftPanelView {
     resizable_state_handle: ResizableStateHandle,
-    mouse_state_handles: MouseStateHandles,
     close_button_mouse_state: MouseStateHandle,
     warp_drive_view: ViewHandle<DrivePanel>,
     conversation_list_view: ViewHandle<ConversationListView>,
@@ -326,7 +316,6 @@ impl LeftPanelView {
 
         let mut view = Self {
             resizable_state_handle,
-            mouse_state_handles: Default::default(),
             close_button_mouse_state: Default::default(),
             warp_drive_view,
             conversation_list_view,
@@ -407,6 +396,7 @@ impl LeftPanelView {
                 ];
 
                 ToolbeltButtonConfig {
+                    mouse_state: MouseStateHandle::default(),
                     icon: Icon::FileCopy,
                     active_icon: None,
                     tooltip_text: "Project explorer".to_string(),
@@ -423,6 +413,7 @@ impl LeftPanelView {
                 ];
 
                 ToolbeltButtonConfig {
+                    mouse_state: MouseStateHandle::default(),
                     icon: Icon::Search,
                     active_icon: None,
                     tooltip_text: "Global search".to_string(),
@@ -441,6 +432,7 @@ impl LeftPanelView {
                 ];
 
                 ToolbeltButtonConfig {
+                    mouse_state: MouseStateHandle::default(),
                     icon: Icon::WarpDrive,
                     active_icon: None,
                     tooltip_text: "Warp Drive".to_string(),
@@ -457,6 +449,7 @@ impl LeftPanelView {
                 ];
 
                 ToolbeltButtonConfig {
+                    mouse_state: MouseStateHandle::default(),
                     icon: Icon::Conversation,
                     active_icon: Some(Icon::Conversation),
                     tooltip_text: "Agent conversations".to_string(),
@@ -469,6 +462,7 @@ impl LeftPanelView {
             ToolPanelView::Handoff => {
                 let tooltip_keybinding_names = vec![];
                 ToolbeltButtonConfig {
+                    mouse_state: MouseStateHandle::default(),
                     icon: Icon::ListCollapsed,
                     active_icon: None,
                     tooltip_text: "Handoff".to_string(),
@@ -481,6 +475,7 @@ impl LeftPanelView {
             ToolPanelView::CtxWindow => {
                 let tooltip_keybinding_names = vec![];
                 ToolbeltButtonConfig {
+                    mouse_state: MouseStateHandle::default(),
                     icon: Icon::Stars,
                     active_icon: None,
                     tooltip_text: "Context Window".to_string(),
@@ -493,6 +488,7 @@ impl LeftPanelView {
             ToolPanelView::Doob => {
                 let tooltip_keybinding_names = vec![];
                 ToolbeltButtonConfig {
+                    mouse_state: MouseStateHandle::default(),
                     icon: Icon::ListCollapsed,
                     active_icon: None,
                     tooltip_text: "Doob Tasks".to_string(),
@@ -505,6 +501,7 @@ impl LeftPanelView {
             ToolPanelView::Handup => {
                 let tooltip_keybinding_names = vec![];
                 ToolbeltButtonConfig {
+                    mouse_state: MouseStateHandle::default(),
                     icon: Icon::ListCollapsed,
                     active_icon: None,
                     tooltip_text: "Handup".to_string(),
@@ -1187,17 +1184,6 @@ impl View for LeftPanelView {
     fn render(&self, app: &AppContext) -> Box<dyn Element> {
         let appearance = Appearance::as_ref(app);
 
-        let mouse_state_handles = vec![
-            self.mouse_state_handles.project_explorer_button.clone(),
-            self.mouse_state_handles.global_search_button.clone(),
-            self.mouse_state_handles.warp_drive_button.clone(),
-            self.mouse_state_handles
-                .conversation_list_view_button
-                .clone(),
-            self.mouse_state_handles.handoff_button.clone(),
-            self.mouse_state_handles.doob_button.clone(),
-        ];
-
         // If there is only one button in the toolbelt row,
         // there is no need to show it as it's a bit redundant.
         let toolbelt_button_row = if self.toolbelt_buttons.len() > 1 {
@@ -1205,11 +1191,13 @@ impl View for LeftPanelView {
                 Flex::row()
                     .with_cross_axis_alignment(CrossAxisAlignment::Center)
                     .with_spacing(4.0)
-                    .with_children(self.toolbelt_buttons.iter().zip(&mouse_state_handles).map(
-                        |(button_config, mouse_state)| {
-                            Self::render_button(button_config, mouse_state.clone(), appearance)
-                        },
-                    ))
+                    .with_children(self.toolbelt_buttons.iter().map(|button_config| {
+                        Self::render_button(
+                            button_config,
+                            button_config.mouse_state.clone(),
+                            appearance,
+                        )
+                    }))
                     .with_main_axis_size(MainAxisSize::Min)
                     .finish(),
             )

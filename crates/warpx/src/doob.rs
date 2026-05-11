@@ -53,12 +53,16 @@ impl RawDoobItem {
         DoobItem {
             id,
             title: self.title.or(self.content),
-            status: self.status,
+            status: self.status.map(normalize_status),
             priority: self.priority.and_then(format_priority),
             description: self.description,
             project: self.project,
         }
     }
+}
+
+fn normalize_status(status: String) -> String {
+    status.replace('-', "_")
 }
 
 fn extract_doob_id(value: &Value) -> Option<String> {
@@ -85,14 +89,20 @@ fn format_priority(value: Value) -> Option<String> {
     }
 }
 
-fn parse_items(stdout: &str) -> Result<Vec<DoobItem>, String> {
+pub fn parse_items_from_value(value: Value) -> Result<Vec<DoobItem>, String> {
     let output: DoobOutput =
-        serde_json::from_str(stdout).map_err(|e| format!("failed to parse doob output: {e}"))?;
+        serde_json::from_value(value).map_err(|e| format!("failed to parse doob output: {e}"))?;
     let items = match output {
         DoobOutput::Envelope(envelope) => envelope.todos,
         DoobOutput::Items(items) => items,
     };
     Ok(items.into_iter().map(RawDoobItem::into_item).collect())
+}
+
+pub fn parse_items_from_str(stdout: &str) -> Result<Vec<DoobItem>, String> {
+    let value: Value =
+        serde_json::from_str(stdout).map_err(|e| format!("failed to parse doob output: {e}"))?;
+    parse_items_from_value(value)
 }
 
 /// Shell out to `doob todo list --json` and parse the result.
@@ -109,7 +119,7 @@ pub fn fetch_items() -> Result<Vec<DoobItem>, String> {
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let items = parse_items(&stdout)?;
+    let items = parse_items_from_str(&stdout)?;
 
     log::info!("[doob] loaded {} items", items.len());
     Ok(items)
@@ -117,7 +127,7 @@ pub fn fetch_items() -> Result<Vec<DoobItem>, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::fetch_items;
+    use super::{fetch_items, parse_items_from_str};
     use std::fs;
     use std::os::unix::fs::PermissionsExt;
 
@@ -180,5 +190,48 @@ JSON
         assert_eq!(items[0].status.as_deref(), Some("pending"));
         assert_eq!(items[0].priority.as_deref(), Some("P1"));
         assert_eq!(items[0].project.as_deref(), Some("warpx"));
+    }
+
+    #[test]
+    fn parse_items_normalizes_in_progress_status() {
+        let items = parse_items_from_str(
+            r#"{
+  "count": 1,
+  "todos": [
+    {
+      "id": "abc123",
+      "title": "Wire MCP add",
+      "status": "in-progress",
+      "priority": "P2",
+      "project": "warpx"
+    }
+  ]
+}"#,
+        )
+        .unwrap();
+
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].status.as_deref(), Some("in_progress"));
+    }
+
+    #[test]
+    fn parse_items_accepts_array_output() {
+        let items = parse_items_from_str(
+            r#"[
+  {
+    "uuid": "abc123",
+    "content": "Array task",
+    "status": "pending",
+    "priority": 3,
+    "project": "warpx"
+  }
+]"#,
+        )
+        .unwrap();
+
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].id, "abc123");
+        assert_eq!(items[0].title.as_deref(), Some("Array task"));
+        assert_eq!(items[0].priority.as_deref(), Some("P3"));
     }
 }
