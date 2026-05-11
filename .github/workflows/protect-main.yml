@@ -1,17 +1,14 @@
 name: Protect main branch
 
 on:
-  push:
+  pull_request:
     branches: [main]
 
 jobs:
-  redirect:
+  block:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Push to develop instead
+      - name: Reject non-upstream PRs to main
         run: |
-          git push origin HEAD:develop
+          echo "::error::main is upstream-only. Target develop for custom work."
+          exit 1
