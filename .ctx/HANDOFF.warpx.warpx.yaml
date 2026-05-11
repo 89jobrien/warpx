@@ -1,12 +1,12 @@
 project: warpx
 id: warpx
-updated: 2026-05-10
+updated: 2026-05-11
 items:
   - id: i1
     doob_uuid: b5eef304-a943-41c0-84d8-2a1c58495d99
     name: null
     priority: P1
-    status: open
+    status: done
     title: Merge personal-mcp Phase 1 MCP tools into Warp agent mode
     description: |
       personal-mcp now has doob_list/complete/add, handoff_scan/read/write, and env_health tools on main. Verify they appear in Warp agent mode tool list and test a live agent query against each.
@@ -31,7 +31,7 @@ items:
     doob_uuid: null
     name: null
     priority: P1
-    status: open
+    status: done
     title: Commit and merge nushell shell integration branch
     description: |
       Branch joe/nushell-shelltype-metadata has uncommitted work completing the nushell
@@ -55,6 +55,15 @@ items:
     completed: null
     extra: []
 log:
+  - date: 20260511::221400
+    summary: |
+      Committed nushell integration (cb6975a), merged to develop, pushed.
+      Verified all Phase 1 personal-mcp MCP tools live in agent mode:
+      handoff_scan, handoff_read, handoff_write, env_health, doob_list,
+      doob_complete, doob_add. Marked i1 and i5 done.
+    commits:
+      - cb6975a
+    session: 6
   - date: 20260510::215302
     summary: |
       Continued nushell shell integration on branch joe/nushell-shelltype-metadata.
