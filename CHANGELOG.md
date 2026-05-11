@@ -9,6 +9,37 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+---
+
+## [v0.4.0] - 2026-05-11
+
+### Added
+
+- Inline context generation in `warpx::context::generate_context()` — no
+  external script dependency; Context Window panel now auto-generates on
+  open/refresh
+- `examples/context_gen.rs` CLI entrypoint and `.warp/workflows/refresh_context_window.yaml`
+- Claude plugin skill discovery (`SkillProvider::ClaudePlugin`,
+  `OzClaudePluginSkills` flag) with hot-reload from `~/.claude/plugins/`
+- Handup panel and generated project context panel
+- Shell-agnostic integration test module
+
+### Fixed
+
+- `protect-main.yml` now rejects PRs to main instead of silently
+  redirecting pushes (main is upstream-only)
+- Linux CI: allow zero integration tests, cover `ShellType::Nu` in
+  autoupdate match arms
+
+### Changed
+
+- HANDOFF YAML files (`.ctx/HANDOFF.*.yaml`) removed from git tracking;
+  managed by doob locally
+
+---
+
+## [v0.3.0] - 2026-05-10
+
 ### Added
 
 - Nushell (`nu`) as a fully supported shell type: discovery, selection,
