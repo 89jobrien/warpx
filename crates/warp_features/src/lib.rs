@@ -852,6 +852,10 @@ pub enum FeatureFlag {
     /// within a token budget. Gated here so it only runs in dogfood/local builds.
     OzJitContext,
 
+    /// Import skills from `~/.claude/plugins/` into the WarpX skill system.
+    /// Supports include/exclude filtering via `~/.warp/claude-skill-sources.toml`.
+    OzClaudePluginSkills,
+
     /// Project-local context panel on the right side of the workspace.
     /// Reads `.ctx/context.json` relative to CWD (walk-up), falls back to
     /// `~/.warp-oss/context.json`. Displays Git, AI Context, Handoff, Todos sections.
@@ -971,6 +975,7 @@ pub const DOGFOOD_FLAGS: &[FeatureFlag] = &[
     FeatureFlag::OzDoobPanel,
     FeatureFlag::OzSessionHooks,
     FeatureFlag::OzJitContext,
+    FeatureFlag::OzClaudePluginSkills,
     FeatureFlag::OzProjectContext,
     FeatureFlag::OzMcpHotReload,
     FeatureFlag::OzBuildParser,

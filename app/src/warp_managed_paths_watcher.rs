@@ -55,6 +55,139 @@ pub(crate) fn warp_home_skills_dir() -> Option<PathBuf> {
     warp_core::paths::warp_home_skills_dir()
 }
 
+/// Returns the root directory for Claude Code plugins: `~/.claude/plugins/`.
+pub(crate) fn claude_plugins_root() -> Option<PathBuf> {
+    home_dir().map(|h| h.join(".claude").join("plugins"))
+}
+
+/// Discover all `skills/` directories inside `~/.claude/plugins/` that contain
+/// at least one `<skill-name>/SKILL.md` entry.  The search walks up to 6 levels
+/// deep to cover paths like `cache/bazaar/godmode/0.6.0/skills/`.
+///
+/// Gated behind `FeatureFlag::OzClaudePluginSkills`.  When enabled, applies
+/// include/exclude filtering from `~/.warp/claude-skill-sources.toml`.
+pub(crate) fn claude_plugin_skill_dirs() -> Vec<PathBuf> {
+    if !warp_core::features::FeatureFlag::OzClaudePluginSkills.is_enabled() {
+        return Vec::new();
+    }
+    let Some(root) = claude_plugins_root() else {
+        return Vec::new();
+    };
+    if !root.is_dir() {
+        return Vec::new();
+    }
+    let mut dirs = Vec::new();
+    collect_skill_dirs(&root, 0, 6, &mut dirs);
+
+    let filter = ClaudeSkillSourceFilter::load();
+    dirs.into_iter()
+        .filter(|dir| filter.is_allowed(dir, &root))
+        .collect()
+}
+
+/// Include/exclude filter for Claude plugin skill directories.
+/// Loaded from `~/.warp/claude-skill-sources.toml`.
+///
+/// ```toml
+/// include = ["cache/bazaar/godmode", "cache/bazaar/atelier", "hand"]
+/// exclude = ["cache/toptal-maestro-playbooks", "marketplaces/langchain-skills"]
+/// ```
+///
+/// If `include` is empty or missing, all directories are included.
+/// `exclude` takes precedence over `include`.
+#[derive(Debug, Default)]
+pub(crate) struct ClaudeSkillSourceFilter {
+    include: Vec<String>,
+    exclude: Vec<String>,
+}
+
+impl ClaudeSkillSourceFilter {
+    fn load() -> Self {
+        let Some(config_path) =
+            warp_core::paths::warp_home_config_dir().map(|d| d.join("claude-skill-sources.toml"))
+        else {
+            return Self::default();
+        };
+        let Ok(contents) = std::fs::read_to_string(&config_path) else {
+            return Self::default();
+        };
+        Self::parse(&contents)
+    }
+
+    fn parse(toml_str: &str) -> Self {
+        #[derive(serde::Deserialize, Default)]
+        struct RawConfig {
+            #[serde(default)]
+            include: Vec<String>,
+            #[serde(default)]
+            exclude: Vec<String>,
+        }
+        let raw: RawConfig = toml::from_str(toml_str).unwrap_or_default();
+        Self {
+            include: raw.include,
+            exclude: raw.exclude,
+        }
+    }
+
+    /// Check if a skill directory is allowed by this filter.
+    /// `skill_dir` is the full path; `plugins_root` is `~/.claude/plugins/`.
+    fn is_allowed(&self, skill_dir: &Path, plugins_root: &Path) -> bool {
+        let rel = match skill_dir.strip_prefix(plugins_root) {
+            Ok(r) => r.to_string_lossy(),
+            Err(_) => return true,
+        };
+
+        // Exclude takes precedence
+        if self
+            .exclude
+            .iter()
+            .any(|pattern| rel.starts_with(pattern.as_str()))
+        {
+            return false;
+        }
+
+        // If include is empty, everything passes
+        if self.include.is_empty() {
+            return true;
+        }
+
+        self.include
+            .iter()
+            .any(|pattern| rel.starts_with(pattern.as_str()))
+    }
+}
+
+fn collect_skill_dirs(dir: &Path, depth: u32, max_depth: u32, out: &mut Vec<PathBuf>) {
+    if depth > max_depth {
+        return;
+    }
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        if path.file_name().is_some_and(|n| n == "skills") {
+            if has_skill_subdirectory(&path) {
+                out.push(path);
+            }
+        } else {
+            collect_skill_dirs(&path, depth + 1, max_depth, out);
+        }
+    }
+}
+
+fn has_skill_subdirectory(skills_dir: &Path) -> bool {
+    let Ok(entries) = std::fs::read_dir(skills_dir) else {
+        return false;
+    };
+    entries
+        .flatten()
+        .any(|e| e.path().is_dir() && e.path().join("SKILL.md").exists())
+}
+
 #[cfg_attr(target_family = "wasm", allow(dead_code))]
 pub(crate) fn warp_home_mcp_config_file_path() -> Option<PathBuf> {
     warp_core::paths::warp_home_mcp_config_file_path()
@@ -68,7 +201,9 @@ pub(crate) struct WarpMcpConfigPath {
 }
 
 pub(crate) fn warp_managed_skill_dirs() -> Vec<PathBuf> {
-    warp_home_skills_dir().into_iter().collect()
+    let mut dirs: Vec<PathBuf> = warp_home_skills_dir().into_iter().collect();
+    dirs.extend(claude_plugin_skill_dirs());
+    dirs
 }
 
 #[cfg_attr(target_family = "wasm", allow(dead_code))]
@@ -278,6 +413,22 @@ impl WarpManagedPathsWatcher {
                     );
                 }
             }
+            if let Some(claude_plugins) = claude_plugins_root() {
+                if claude_plugins.exists()
+                    && !claude_plugins.starts_with(&data_dir)
+                    && (!should_register_config_local_dir
+                        || !claude_plugins.starts_with(&config_local_dir))
+                {
+                    Self::register_path(
+                        ctx,
+                        &watcher,
+                        claude_plugins,
+                        WatchFilter::accept_all(),
+                        RecursiveMode::Recursive,
+                        "Claude plugins skills directory",
+                    );
+                }
+            }
             if let (Some(warp_home_config_dir), Some(warp_home_mcp_config_path)) =
                 (warp_home_config_dir(), warp_home_mcp_config_file_path())
             {
@@ -365,17 +516,73 @@ mod tests {
     use repo_metadata::{RepositoryUpdate, TargetFile};
 
     use super::{
-        filter_repository_update_by_prefix, warp_home_mcp_config_file_path, warp_home_skills_dir,
-        warp_managed_mcp_config_path, warp_managed_skill_dirs,
+        claude_plugin_skill_dirs, filter_repository_update_by_prefix,
+        warp_home_mcp_config_file_path, warp_home_skills_dir, warp_managed_mcp_config_path,
+        warp_managed_skill_dirs, ClaudeSkillSourceFilter,
     };
 
     #[test]
-    fn warp_managed_skill_dirs_contains_only_warp_home_path() {
+    fn warp_managed_skill_dirs_contains_warp_home_and_claude_plugins() {
         let dirs = warp_managed_skill_dirs();
-        match warp_home_skills_dir() {
-            Some(warp_home_skills_dir) => assert_eq!(dirs, vec![warp_home_skills_dir]),
-            None => assert!(dirs.is_empty()),
+        if let Some(warp_home) = warp_home_skills_dir() {
+            assert!(dirs.contains(&warp_home));
         }
+        for claude_dir in claude_plugin_skill_dirs() {
+            assert!(dirs.contains(&claude_dir));
+        }
+    }
+
+    #[test]
+    fn claude_plugin_skill_dirs_returns_valid_skill_directories() {
+        for dir in claude_plugin_skill_dirs() {
+            assert!(dir.is_dir(), "{} is not a directory", dir.display());
+            assert_eq!(
+                dir.file_name().and_then(|n| n.to_str()),
+                Some("skills"),
+                "{} should be named 'skills'",
+                dir.display()
+            );
+        }
+    }
+
+    #[test]
+    fn filter_empty_config_allows_all() {
+        let filter = ClaudeSkillSourceFilter::parse("");
+        let root = PathBuf::from("/home/user/.claude/plugins");
+        let dir = root.join("cache/bazaar/godmode/0.6.0/skills");
+        assert!(filter.is_allowed(&dir, &root));
+    }
+
+    #[test]
+    fn filter_include_only_allows_matching() {
+        let filter =
+            ClaudeSkillSourceFilter::parse(r#"include = ["cache/bazaar/godmode", "hand"]"#);
+        let root = PathBuf::from("/home/user/.claude/plugins");
+        assert!(filter.is_allowed(&root.join("cache/bazaar/godmode/0.6.0/skills"), &root));
+        assert!(filter.is_allowed(&root.join("hand/skills"), &root));
+        assert!(!filter.is_allowed(&root.join("cache/bazaar/atelier/1.0/skills"), &root));
+    }
+
+    #[test]
+    fn filter_exclude_takes_precedence() {
+        let filter = ClaudeSkillSourceFilter::parse(
+            r#"
+include = ["cache/bazaar"]
+exclude = ["cache/bazaar/godmode"]
+"#,
+        );
+        let root = PathBuf::from("/home/user/.claude/plugins");
+        assert!(filter.is_allowed(&root.join("cache/bazaar/atelier/1.0/skills"), &root));
+        assert!(!filter.is_allowed(&root.join("cache/bazaar/godmode/0.6.0/skills"), &root));
+    }
+
+    #[test]
+    fn filter_exclude_only_blocks_matching() {
+        let filter =
+            ClaudeSkillSourceFilter::parse(r#"exclude = ["marketplaces/langchain-skills"]"#);
+        let root = PathBuf::from("/home/user/.claude/plugins");
+        assert!(filter.is_allowed(&root.join("cache/bazaar/godmode/0.6.0/skills"), &root));
+        assert!(!filter.is_allowed(&root.join("marketplaces/langchain-skills/skills"), &root));
     }
 
     #[test]

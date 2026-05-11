@@ -32,6 +32,7 @@ pub enum SkillProvider {
     Warp,
     Agents,
     Claude,
+    ClaudePlugin,
     Codex,
     Cursor,
     Gemini,
@@ -77,7 +78,7 @@ impl SkillProvider {
     /// Returns the default icon for this provider.
     pub fn icon(&self) -> Icon {
         match self {
-            SkillProvider::Claude => Icon::ClaudeLogo,
+            SkillProvider::Claude | SkillProvider::ClaudePlugin => Icon::ClaudeLogo,
             SkillProvider::Codex => Icon::OpenAILogo,
             SkillProvider::Gemini => Icon::GeminiLogo,
             SkillProvider::Droid => Icon::DroidLogo,
@@ -94,7 +95,7 @@ impl SkillProvider {
     /// don't require a specific color. Claude uses its branded salmon color instead.
     pub fn icon_fill(&self, fallback: Fill) -> Fill {
         match self {
-            SkillProvider::Claude => Fill::Solid(CLAUDE_ORANGE),
+            SkillProvider::Claude | SkillProvider::ClaudePlugin => Fill::Solid(CLAUDE_ORANGE),
             _ => fallback,
         }
     }
@@ -149,12 +150,26 @@ pub static SKILL_PROVIDER_DEFINITIONS: LazyLock<Vec<SkillProviderDefinition>> =
 
 /// Returns the precedence rank of a provider based on its position in [`SKILL_PROVIDER_DEFINITIONS`].
 pub fn provider_rank(provider: SkillProvider) -> usize {
+    // ClaudePlugin is not in SKILL_PROVIDER_DEFINITIONS (no simple skills_path
+    // pattern).  Rank it just after Claude so it sorts near its parent provider.
+    if provider == SkillProvider::ClaudePlugin {
+        let claude_rank = SKILL_PROVIDER_DEFINITIONS
+            .iter()
+            .position(|def| def.provider == SkillProvider::Claude)
+            .unwrap_or(2);
+        return claude_rank + 1;
+    }
     SKILL_PROVIDER_DEFINITIONS
         .iter()
         .position(|def| def.provider == provider)
         // NOTE: Each SkillProvider should map to a unique SkillProviderDefinition
         // so we should never reach this path.
         .unwrap_or(usize::MAX)
+}
+
+/// Returns the `~/.claude/plugins/` directory path.
+fn claude_plugins_dir() -> Option<PathBuf> {
+    home_dir().map(|h| h.join(".claude").join("plugins"))
 }
 
 pub fn home_skills_path(provider: SkillProvider) -> Option<PathBuf> {
@@ -172,6 +187,15 @@ pub fn home_skills_path(provider: SkillProvider) -> Option<PathBuf> {
 ///   get_provider_for_path(Path::new("/repo/.claude/skills/my-skill/SKILL.md")) returns Some(SkillProvider::Claude).
 /// Handles both SKILL.md files and files nested within a skill directory.
 pub fn get_provider_for_path(path: &Path) -> Option<SkillProvider> {
+    // Check for Claude plugin skills before the standard provider loop.
+    // These live under ~/.claude/plugins/ and don't match the standard
+    // two-component provider path pattern (e.g. ".claude/skills").
+    if let Some(claude_plugins) = claude_plugins_dir() {
+        if path.starts_with(&claude_plugins) {
+            return Some(SkillProvider::ClaudePlugin);
+        }
+    }
+
     let path_components: Vec<_> = path.components().collect();
 
     for def in SKILL_PROVIDER_DEFINITIONS.iter() {
@@ -199,6 +223,11 @@ pub fn get_provider_for_path(path: &Path) -> Option<SkillProvider> {
 /// A skill is considered a "Home" skill if its path starts with the user's home directory.
 /// Otherwise, it's a "Project" skill.
 pub fn get_scope_for_path(path: &Path) -> SkillScope {
+    if let Some(claude_plugins) = claude_plugins_dir() {
+        if path.starts_with(&claude_plugins) {
+            return SkillScope::Home;
+        }
+    }
     for def in SKILL_PROVIDER_DEFINITIONS.iter() {
         if home_skills_path(def.provider)
             .into_iter()
@@ -213,7 +242,8 @@ pub fn get_scope_for_path(path: &Path) -> SkillScope {
 #[cfg(test)]
 mod tests {
     use super::{
-        get_provider_for_path, get_scope_for_path, home_skills_path, SkillProvider, SkillScope,
+        get_provider_for_path, get_scope_for_path, home_skills_path, provider_rank, SkillProvider,
+        SkillScope,
     };
 
     #[test]
@@ -234,5 +264,29 @@ mod tests {
 
         assert_eq!(get_provider_for_path(&path), Some(SkillProvider::Warp));
         assert_eq!(get_scope_for_path(&path), SkillScope::Home);
+    }
+
+    #[test]
+    fn claude_plugin_path_returns_claude_plugin_provider() {
+        let Some(home) = dirs::home_dir() else {
+            eprintln!("Skipping test: home directory not available");
+            return;
+        };
+        let path = home.join(".claude/plugins/cache/bazaar/godmode/0.6.0/skills/cap/SKILL.md");
+        assert_eq!(
+            get_provider_for_path(&path),
+            Some(SkillProvider::ClaudePlugin)
+        );
+        assert_eq!(get_scope_for_path(&path), SkillScope::Home);
+    }
+
+    #[test]
+    fn claude_plugin_rank_is_after_claude() {
+        let claude_rank = provider_rank(SkillProvider::Claude);
+        let plugin_rank = provider_rank(SkillProvider::ClaudePlugin);
+        assert!(
+            plugin_rank > claude_rank,
+            "ClaudePlugin rank ({plugin_rank}) should be after Claude ({claude_rank})"
+        );
     }
 }

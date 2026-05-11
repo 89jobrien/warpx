@@ -77,6 +77,7 @@ impl From<SkillProvider> for api::skill_descriptor::Provider {
             SkillProvider::Droid => api::skill_descriptor::provider::Type::Droid(()),
             SkillProvider::Github => api::skill_descriptor::provider::Type::Github(()),
             SkillProvider::OpenCode => api::skill_descriptor::provider::Type::OpenCode(()),
+            SkillProvider::ClaudePlugin => api::skill_descriptor::provider::Type::Claude(()),
         };
 
         api::skill_descriptor::Provider {
