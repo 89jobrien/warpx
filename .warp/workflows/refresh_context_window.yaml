@@ -1,0 +1,6 @@
+---
+name: "Refresh Context Window"
+command: "cargo run -p warpx --example context_gen --release"
+description: "Regenerate ~/.warp/context.json and refresh the Context Window panel data (git, AI context, handoff, todos)."
+author: Joe
+shells: []
