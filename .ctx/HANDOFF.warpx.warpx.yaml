@@ -2,18 +2,6 @@ project: warpx
 id: warpx
 updated: 2026-05-11
 items:
-  - id: i1
-    doob_uuid: b5eef304-a943-41c0-84d8-2a1c58495d99
-    name: null
-    priority: P1
-    status: done
-    title: Merge personal-mcp Phase 1 MCP tools into Warp agent mode
-    description: |
-      personal-mcp now has doob_list/complete/add, handoff_scan/read/write, and env_health tools on main. Verify they appear in Warp agent mode tool list and test a live agent query against each.
-    files:
-      - ~/.warp/.mcp.json
-    completed: null
-    extra: []
   - id: i4
     doob_uuid: 2c0c5b4e-f026-4d1c-a0f8-13d3c162e37c
     name: null
@@ -27,34 +15,15 @@ items:
       - crates/warp_features/src/lib.rs
     completed: null
     extra: []
-  - id: i5
-    doob_uuid: null
-    name: null
-    priority: P1
-    status: done
-    title: Commit and merge nushell shell integration branch
-    description: |
-      Branch joe/nushell-shelltype-metadata has uncommitted work completing the nushell
-      session spawning integration. Changes include: available_shells.rs (spawn guard
-      flipped, Nu shown in command palette), session_settings/startup_shell.rs (Nu
-      variant), bootstrap.rs (nu.sh + nu_init_shell.sh wired, RC-file method enabled),
-      local_tty/shell.rs (arguments_for_session_spawning_command for Nu), and new
-      bootstrap asset files. All 19 nushell + bootstrap tests pass, cargo clippy clean.
-      Needs commit then merge to joe/main. Prompt hooks (Precmd/Preexec/CommandFinished)
-      are implemented but not yet validated end-to-end in a live session.
-    files:
-      - app/src/terminal/available_shells.rs
-      - app/src/terminal/available_shells_test.rs
-      - app/src/terminal/bootstrap.rs
-      - app/src/terminal/local_tty/shell.rs
-      - app/src/terminal/session_settings/startup_shell.rs
-      - app/src/search/command_palette/new_session/data_source.rs
-      - app/src/tab_configs/tab_config.rs
-      - app/assets/bundled/bootstrap/nu.sh
-      - app/assets/bundled/bootstrap/nu_init_shell.sh
-    completed: null
-    extra: []
 log:
+  - date: 20260511::154658
+    summary: |
+      Handoff triage found SQLite stale for i1 and i5 while YAML/log/git history
+      showed both completed. Confirmed Phase 1 personal MCP tools are advertised in
+      agent context; handoff_scan, handoff_read, and env_health live calls succeed.
+      Pruned completed i1/i5 from active items; left i4 open as remaining P2.
+    commits: []
+    session: 7
   - date: 20260511::221400
     summary: |
       Committed nushell integration (cb6975a), merged to develop, pushed.
