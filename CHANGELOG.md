@@ -9,6 +9,21 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- `cargo xtask run [--release] [-- args]` — build and launch WarpX.app
+- `cargo xtask install [--release]` — build and install to /Applications
+- macOS self-hosted test runner and xvfb for Linux integration tests
+
+### Changed
+
+- Justfile `run` and `install` targets now use `cargo xtask`
+
+### Fixed
+
+- Retryable `async_assert` in block index test assertions
+- Clippy: replace `let...else` with `?` in doob panel
+
 ---
 
 ## [v0.4.0] - 2026-05-11
