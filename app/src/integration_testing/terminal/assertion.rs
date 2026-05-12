@@ -414,12 +414,10 @@ pub fn assert_selected_block_index_is_first_renderable() -> AssertionCallback {
                 .block_list()
                 .block_at(selected_block_index)
                 .expect("Block should exist");
-            let outcome = async_assert!(
-                block.height(&AgentViewState::Inactive) != Lines::zero(),
-                "The selected block should be rendered"
-            );
-            if outcome != AssertionOutcome::Success {
-                return outcome;
+            if block.height(&AgentViewState::Inactive) == Lines::zero() {
+                return AssertionOutcome::failure(
+                    "The selected block should be rendered".to_string(),
+                );
             }
             // Previous index either doesn't exist or isn't renderable
             if selected_block_index > BlockIndex::zero() {
@@ -448,12 +446,10 @@ pub fn assert_selected_block_index_is_last_renderable() -> AssertionCallback {
                 .block_list()
                 .block_at(selected_block_index)
                 .expect("Block should exist");
-            let outcome = async_assert!(
-                block.height(&AgentViewState::Inactive) != Lines::zero(),
-                "The selected block should be rendered"
-            );
-            if outcome != AssertionOutcome::Success {
-                return outcome;
+            if block.height(&AgentViewState::Inactive) == Lines::zero() {
+                return AssertionOutcome::failure(
+                    "The selected block should be rendered".to_string(),
+                );
             }
 
             async_assert_eq!(
