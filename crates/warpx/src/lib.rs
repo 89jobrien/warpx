@@ -10,6 +10,8 @@ pub mod handoff;
 pub mod hooks;
 pub mod jit_context;
 pub mod joe;
+pub mod provider;
+pub mod providers;
 
 #[cfg(test)]
 pub(crate) mod test_env {
