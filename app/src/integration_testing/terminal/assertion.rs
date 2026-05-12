@@ -10,6 +10,7 @@ use warpui::{
     App, SingletonEntity, ViewHandle, WindowId,
 };
 
+#[allow(unused_imports)]
 use crate::{
     ai::blocklist::agent_view::AgentViewState,
     integration_testing::view_getters::{
