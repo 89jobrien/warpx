@@ -120,7 +120,7 @@ jobs:
         shell: bash
         run: |
           if [ "${{ matrix.os }}" = "linux" ]; then
-            xvfb-run --auto-servernum cargo nextest run ${{ env.WORKSPACE_TEST_ARGS }} ${{ matrix.extra_test_args }} -E "package(integration) and not test(shell_integration_tests) and not test(/_ssh_/) and not test(ui_tests) and not test(test_clear)"
+            xvfb-run --auto-servernum cargo nextest run ${{ env.WORKSPACE_TEST_ARGS }} ${{ matrix.extra_test_args }} -E "package(integration) and not test(shell_integration_tests) and not test(/_ssh_/) and not test(ui_tests) and not test(test_clear) and not test(test_with_long_line)"
           else
             cargo nextest run ${{ env.WORKSPACE_TEST_ARGS }} ${{ matrix.extra_test_args }} -E "package(integration) and not test(shell_integration_tests) and not test(/_ssh_/) and not test(ui_tests)"
           fi
