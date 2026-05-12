@@ -3,17 +3,13 @@
 default:
     @just --list
 
-# Build and run WarpX locally, forwarding any extra args to script/run.
+# Build and run WarpX locally.
 run *args:
-    ./script/run {{args}}
-
-# Build the app bundle without launching it.
-bundle *args:
-    ./script/run --dont-open {{args}}
+    cargo xtask run {{args}}
 
 # Build and install WarpX.app into /Applications.
 install *args:
-    ./scripts/warpx/install {{args}}
+    cargo xtask install {{args}}
 
 # Run WarpX against a local warp-server.
 run-local-server port="8080" *args:
